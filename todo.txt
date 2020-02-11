@@ -1,6 +1,0 @@
-Todo:												Done
-														Add acceleration forces on ball
-														Add a target (the cross)
-														Add a graph showing distance from ball to cross
-														Start setting up automated targeting (with least squares method)
-														make automated version with a PID loop

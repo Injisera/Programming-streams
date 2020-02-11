@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <title>Moving Squares</title>
+    <meta charset="utf-8">
+		<style>
+			body,canvas{
+				background-color:#fff;
+				padding:0px;
+				margin:0px;
+				border:0px;
+				overflow:hidden;
+				width:100%;
+				height:100%;
+			}
+			
+			canvas{
+				position:relative;
+				background-color:#ccc;
+			}
+			
+		</style>
+    <script type="text/javascript">
+			
+			onload=function(){
+				try{		
+
+					let canvas = document.body.appendChild(document.createElement("canvas"));
+					let ctx=canvas.getContext("2d");
+					
+					let size = 40;
+					let padding = 10;
+					let squareList = [];
+					
+					canvas.width=640;
+					canvas.height=480;
+					
+					canvas.style.width=canvas.width+"px";
+					canvas.style.height=canvas.height+"px";
+					
+					onresize = function(e){
+						canvas.left=(window.innerWidth-canvas.width)>>1;
+						canvas.top=(window.innerHeight-canvas.height)>>1;
+						
+						canvas.style.left=canvas.left+"px";
+						canvas.style.top=canvas.top+"px";
+					}
+					onresize();//call it an extra time so everything is centered when you start
+					
+					squareClass = function(x,y){
+						this.drawSize = (size-4)*0.5;
+						//this.gap = 7;
+						this.x = x
+						this.localX=0;
+						this.y = y
+						this.localY=0;
+						this.parent = 0;
+						this.child = [];
+						squareList.push(this);
+					}
+					
+					
+					squareClass.prototype.localPlace = function(x,y){//local absolute
+						let dx = x-this.x+this.parent.x;
+						let dy = y-this.y+this.parent.y;				
+						this.move(dx,dy);
+					}
+					
+					squareClass.prototype.globalPlace = function(x,y){//global absolute
+						let dx = x-this.x;
+						let dy = y-this.y;						
+						this.move(dx,dy);
+					}
+					
+					squareClass.prototype.move = function(dx,dy){//relative
+						this.x+=dx;
+						this.y+=dy;
+						if(this.parent !=0){
+							this.localX = this.x-this.parent.x;
+							this.localY = this.y-this.parent.y;
+						}
+						for(let i=0;i<this.child.length;++i){
+							this.child[i].move(dx,dy);
+						}
+					}
+
+					squareClass.prototype.draw = function(){
+					
+						//let gap = this.size+this.gap;
+					
+						ctx.save();
+						ctx.translate(this.x,this.y)
+						
+						ctx.beginPath();
+						ctx.lineWidth=2;
+						ctx.rect(-this.drawSize, -this.drawSize, this.drawSize*2, this.drawSize*2);
+						ctx.stroke();
+						
+						/*
+						ctx.beginPath();
+						ctx.moveTo(-this.size, -gap);//upper line
+						ctx.lineTo(this.size, -gap);
+						ctx.moveTo(gap, -this.size);//right line
+						ctx.lineTo(gap, this.size);			
+						ctx.moveTo(-this.size, gap);//bottom line
+						ctx.lineTo(this.size, gap);
+						ctx.moveTo(-gap, -this.size);//left line
+						ctx.lineTo(-gap, this.size);			
+						ctx.stroke();
+						*/
+						
+						ctx.restore();
+						
+					}
+					
+					squareClass.prototype.make = function(orientation){
+					
+						//0 = right
+						//1 = up
+						//2 = left
+						//3 = bottom
+						
+						let x = size;
+						let y = 0;
+						
+						if(orientation == 1){
+							x = 0;
+							y = -size;
+						}else if(orientation == 2){
+							x = -size;
+							y = 0;
+						}else if(orientation == 3){
+							x = 0;
+							y = size;
+						}
+						let square = new squareClass(this.x+x,this.y+y);
+						square.parent = this;
+						this.child.push(square);
+						
+						return square;
+					}
+					
+					squareClass.prototype.adopt = function(square){
+						
+						for(let i=0;i<square.parent.child.length;++i){
+							if(square.parent.child[i]==square){
+								square.parent.child.splice(i,1)
+								break;
+							}
+						}
+						
+						square.parent = this;
+						this.child.push(square);
+					}
+					
+					
+					let pillar = [];
+					let elevator = [];
+					
+					for(let i=0;i<4;++i){
+						pillar.push(new squareClass(200+i*size*2,canvas.height-padding-size*0.5))
+						let temp = pillar[pillar.length-1];
+						for(let j=0;j<=i;++j){
+							if(i>0){
+								if(j<i){
+									temp = temp.make(1)
+									
+								}else{
+									elevator.push(temp.make(2))
+								}
+							}
+						}
+					}
+					
+					let square = pillar[3].child[0].child[0].child[0].make(1)
+
+
+					let t = 0;
+					let state = 0;
+					
+					let draw = function(){
+						//ctx.save();
+						//ctx.restore();
+						//ctx.setTransform
+						//ctx.rotate
+						//ctx.translate
+						t++;
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						/*
+						for(let i=0;i<elevator.length;++i){
+							elevator[i].localPlace(-size,size*0.5+size*Math.sin(t*0.02)*0.5)
+						}*/
+						
+						switch (state){
+							case 0:
+							
+								if(square.localX>-size){
+									square.move(-1,0)
+								}else{
+									//square.localPlace(-size,-size)
+									elevator[2].adopt(square);
+									state = 1;
+								}
+							break;
+							case 1:
+								if(elevator[2].localY<size){
+									elevator[2].move(0,1)
+								}else{
+									//square.localPlace(-size,-size)
+									//elevator[2].adopt(square);
+									state = 2;
+								}
+							break;
+							case 2:
+								if(square.localX>-size*2){
+									square.move(-1,0)
+								}else{
+									elevator[1].adopt(square)
+									state = 3;
+								}
+							break;
+							case 3:
+								if(elevator[1].localY<size){
+									elevator[1].move(0,1)
+								}else{
+									//square.localPlace(-size,-size)
+									//elevator[2].adopt(square);
+									state = 4;
+								}
+							break;
+							case 4:
+								if(square.localX>-size*2){
+									square.move(-1,0)
+								}else{
+									elevator[0].adopt(square)
+									state = 5;
+								}
+								break;
+								
+							case 5:
+								if(elevator[0].localY<size){
+									elevator[0].move(0,1)
+								}else{
+									//square.localPlace(-size,-size)
+									//elevator[2].adopt(square);
+									state = 6;
+								}
+								break;
+							case 6:
+								if(square.localX>-size){
+									square.move(-1,0)
+								}else{
+									pillar[0].adopt(square)
+									state = 7;
+								}
+								break;
+
+								
+
+						}
+						
+						//masterSquare.globalPlace(300+200*Math.sin(t*0.01),masterSquare.y)
+						//masterSquare.child[0].localPlace(size*Math.sin(t*0.03)*0.5,-size)
+						//masterSquare.child[0].child[0].localPlace(-size,-size*0.25+size*Math.sin(t*0.02)*0.25)
+						
+						//square2.x = masterSquare.x+size*0.5;
+						//square2.y = masterSquare.y -size*0.5+5*Math.sin(temp*0.1)
+						
+						
+						
+						
+						
+						
+						
+						
+						for(let i=0;i<squareList.length;++i){
+							squareList[i].draw();
+						}
+						
+						ctx.beginPath();
+						ctx.moveTo(padding,canvas.height-padding);
+						ctx.lineTo(canvas.width-padding,canvas.height-padding);
+						ctx.lineWidth=2;
+						ctx.stroke();
+						
+						requestAnimationFrame(draw);
+					}
+
+					requestAnimationFrame(draw);
+
+					
+					
+					//cancelAnimationFrame() if I want to stahp
+					
+				}catch(e){alert(e);}//debugging alerts
+      }
+    
+			
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <title>trajectory planning</title>
+    <meta charset="utf-8">
+		<style>
+			body,canvas{
+				background-color:#fff;
+				padding:0px;
+				margin:0px;
+				border:0px;
+				overflow:hidden;
+				width:100%;
+				height:100%;
+			}
+			
+			canvas{
+				position:relative;
+				background-color:#ccc;
+			}
+			
+		</style>
+    <script type="text/javascript">
+			
+			onload=function(){
+				try{		
+
+					let canvas = document.body.appendChild(document.createElement("canvas"));
+					
+					canvas.width=640;
+					canvas.height=480;
+					
+					let ctx=canvas.getContext("2d");
+					let PI2 = 2*Math.PI;
+					let gravity = 2;
+					let ballArray = [];
+					
+					let targetX = 400;
+					let targetY = 200;
+					let targetRadius = 10;
+					
+					let cannonX=100;
+					let cannonY=canvas.height-100;
+					
+					let mouseX = cannonX+1;
+					let mouseY = cannonY;
+					
+					let graphWidth = 100;
+					let graphHeight = 100;
+					
+					let error = 0;
+					let Kp = 0.001;
+					let Ki = 0.001;
+					let errorI = 5/Ki;
+
+										
+					let histogram = Array(graphWidth)
+					for(let i=0;i<graphWidth;++i){
+						histogram[i]=Math.sin(i*0.1)*40+50;
+					}
+					let histogramOffset = 0;
+										
+					canvas.left = 0;
+					canvas.top = 0;
+					
+					canvas.style.width=canvas.width+"px";
+					canvas.style.height=canvas.height+"px";
+					
+					//when I change the size of window, update position
+					onresize = function(e){
+						canvas.left=(window.innerWidth-canvas.width)/2;
+						canvas.top=(window.innerHeight-canvas.height)/2;
+						
+						canvas.style.left=canvas.left+"px";
+						canvas.style.top=canvas.top+"px";
+					}
+					onresize();//call it an extra time so everything is centered when you start
+					
+					//makes a function for drawing a cannon
+					let drawCannon = function(x,y,angle){
+						let length = 80;
+						let thickness = 20;
+						ctx.lineWidth=2;
+						ctx.save();
+						ctx.translate(x,y)//move it
+						ctx.rotate(angle);//rotate it 
+						
+						ctx.beginPath();
+						ctx.moveTo(length,-thickness);
+						ctx.lineTo(-thickness,-thickness);
+						ctx.lineTo(-thickness,thickness);
+						ctx.lineTo(length,thickness);
+						ctx.stroke();
+						
+						ctx.restore();
+					}
+					
+					let drawTarget = function(x,y,radius){
+						ctx.beginPath();
+						
+						ctx.moveTo(x+radius,y+radius);
+						ctx.lineTo(x-radius,y-radius);
+						
+						ctx.moveTo(x-radius,y+radius);
+						ctx.lineTo(x+radius,y-radius);
+						
+						ctx.stroke();
+					}
+					
+					
+					
+					ballClass = function(x,y,velocityX,velocityY,radius,ground){
+
+						this.x=x;
+						this.y=y;
+						this.radius=radius;
+						this.velocityX=velocityX;
+						this.velocityY=velocityY;
+						this.ground=ground+radius;
+						this.minY = -1;
+						this.minDistance = -1;
+						return this;
+					}
+									
+					let drawBall = function(){
+						
+						for(let i=0;i<ballArray.length;++i){
+							
+							
+
+							
+							let dx = ballArray[i].x-targetX;
+							let dy = ballArray[i].y-targetY;
+							let distance2 = dx*dx+dy*dy;
+							let distance = Math.sqrt(distance2);
+							
+							
+							
+							
+							let btX = targetX-ballArray[i].x;
+							let btY = targetY-ballArray[i].y;
+
+							let z = btY*ballArray[i].velocityX-btX*ballArray[i].velocityY;
+							let y = -z;
+							
+							
+							if(ballArray[i].minDistance<0){
+								ballArray[i].minDistance=distance;
+							}
+							
+							if(distance<ballArray[i].minDistance){
+								ballArray[i].minDistance=distance;
+								ballArray[i].minY=y;
+							}
+							
+							
+							histogram[histogramOffset]=graphHeight-distance2*0.001;
+							
+							ctx.beginPath();
+							ctx.arc(ballArray[i].x, ballArray[i].y, ballArray[i].radius, 0, PI2);
+							ctx.fill();
+						
+							ballArray[i].velocityY+=gravity;
+							
+							ballArray[i].x+=ballArray[i].velocityX;
+							ballArray[i].y+=ballArray[i].velocityY;
+							
+							if((ballArray[i].y)>=ballArray[i].ground){
+								
+								if(ballArray.length==1){
+									for(let xx = 0;xx<histogram.length;++xx){
+										histogram[xx]=graphHeight*0.5;
+									}
+								}
+								error = ballArray[i].minY;
+								errorI+=error;
+								delete ballArray.splice(i--,1)
+								shootBall((mouseX-cannonX),(mouseY-cannonY))
+							}
+						}
+						
+					};
+					
+
+					
+					
+					
+
+					
+					canvas.onmousemove = function(e){
+						mouseX=e.clientX-canvas.left;
+						mouseY=e.clientY-canvas.top;
+					
+					}
+					
+					let shootBall = function(angleX,angleY){
+						let distance2 = angleX*angleX + angleY*angleY
+						let distance = Math.sqrt(distance2);
+						angleX/=distance;
+						angleY/=distance;
+						
+						
+						let p = error*Kp;
+						let i = errorI*Ki;
+						let u = p+i; 
+						let velocityX = angleX*u;
+						let velocityY = angleY*u;
+						
+						ball = new ballClass(cannonX,cannonY,velocityX,velocityY,10,canvas.height)
+						ballArray.push(ball);
+					}
+					
+					canvas.onmouseup = function(e){
+						mouseX=e.clientX-canvas.left;
+						mouseY=e.clientY-canvas.top;
+						if(ballArray.length==0){
+							shootBall((mouseX-cannonX),(mouseY-cannonY))
+						}
+					}
+					
+					drawGraph = function(){
+						
+						let xx = canvas.width-graphWidth-10;
+						let yy = 10;
+						ctx.save();
+						ctx.fillStyle="#eee";
+						
+						ctx.fillRect(xx, yy, graphWidth, graphHeight);
+						ctx.lineWidth=2;
+						ctx.beginPath();
+						//ctx.moveTo(xx,yy+histogram[histogramOffset])
+						
+						for(let x = 5;x<graphWidth;++x){
+							ctx.lineTo(xx+x,yy+histogram[(x+histogramOffset)%graphWidth])
+						}
+						ctx.stroke();
+						ctx.restore();
+					}
+					
+					let draw = function(){
+						//ctx.save();
+						//ctx.restore();
+						//ctx.setTransform
+						//ctx.rotate
+						//ctx.translate
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						if(ballArray.length>0){
+							histogramOffset=(histogramOffset+1)%graphWidth;
+						}
+						
+
+						
+						drawCannon(cannonX,cannonY,Math.atan2(mouseY-cannonY,mouseX-cannonX));
+						drawBall();
+						drawTarget(targetX,targetY,targetRadius)
+						drawGraph();
+						
+						requestAnimationFrame(draw);
+					}
+
+					requestAnimationFrame(draw);
+
+					
+					
+					//cancelAnimationFrame() if I want to stahp
+					
+				}catch(e){alert(e);}//debugging alerts
+      }
+    
+			
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
