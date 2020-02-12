@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <title>basic bridge</title>
+    <meta charset="utf-8">
+		<style>
+			body,canvas{
+				background-color:#fff;
+				padding:0px;
+				margin:0px;
+				border:0px;
+				overflow:hidden;
+				width:100%;
+				height:100%;
+			}
+			
+			canvas{
+				position:relative;
+				background-color:#ccc;
+			}
+			
+		</style>
+    <script type="text/javascript">
+			
+			onload=function(){
+				try{		
+
+					
+					const canvas = document.body.appendChild(document.createElement("canvas"));
+					const ctx=canvas.getContext("2d");
+					const debugPointSize=10;
+					
+					canvas.grab=0;//used for moving points
+					canvas.other=0;//used for adding/removing edges
+					canvas.i=0;//used for adding/removing edges
+
+					let pointList=[];//all points, including the fixed ones
+					let historyList=[];
+					let forceList=[];//points with forces acting on them
+					let buttonList=[];
+					
+					let edgeList=[];//edges connecting points together acting as a force
+					
+					canvas.width=640;
+					canvas.height=480;
+					
+					canvas.style.width=canvas.width+"px";
+					canvas.style.height=canvas.height+"px";
+					
+					onresize = function(e){
+						canvas.left=(window.innerWidth-canvas.width)>>1;
+						canvas.top=(window.innerHeight-canvas.height)>>1;
+						
+						canvas.style.left=canvas.left+"px";
+						canvas.style.top=canvas.top+"px";
+					}
+					onresize();//call it an extra time so everything is centered when you start
+					
+
+					
+					class point{
+						constructor(x,y){
+							this.xEdge=0;
+							this.yEdge=0;
+							
+							this.xAcceleration=0;
+							this.yAcceleration=0;
+							
+							this.xSpeed=0;
+							this.ySpeed=0;
+							
+							this.fill=0;
+							
+							this.x=x;
+							this.y=y;
+							
+							this.edge=[];
+							
+							pointList.push(this);
+							forceList.push(this);
+							
+						}
+						
+						simulate(){
+							this.xAcceleration=this.xEdge;
+							this.yAcceleration=this.yEdge;
+							
+							this.xEdge=0;
+							this.yEdge=0.001;
+							
+							this.xSpeed+=this.xAcceleration;
+							this.ySpeed+=this.yAcceleration;
+						
+							this.xSpeed*=0.9999;
+							this.ySpeed*=0.9999;
+							
+							this.x+=this.xSpeed;
+							this.y+=this.ySpeed;
+						}
+						
+						draw(){
+							ctx.beginPath();
+							ctx.rect(this.x-debugPointSize*0.5,this.y-debugPointSize*0.5,debugPointSize,debugPointSize)
+							if(this.fill){
+							ctx.fill();
+							}
+							ctx.stroke();
+						}
+					}
+					
+					
+					class edge{
+						constructor(pointA,pointB){
+							this.point=[pointA,pointB];//two points per edge
+
+							this.error = 0;
+							this.oldError = 0;
+							this.kP=0.001;
+							this.kD=0.001;
+							this.distance=50;
+							
+							pointA.edge.push(this)
+							pointB.edge.push(this)
+							edgeList.push(this)
+							
+						}
+						
+						simulate(){
+							let dx = this.point[0].x-this.point[1].x;
+							let dy = this.point[0].y-this.point[1].y;
+							
+							let distance=Math.sqrt(dx*dx+dy*dy);
+							
+							
+							
+							this.oldError = this.error;
+							this.error = this.distance-distance;
+							
+							let P = this.error*this.kP;
+							let D = (this.error-this.oldError)*this.kD;
+							let U = P+D;
+							
+							let ux = U*dx;
+							let uy = U*dy;
+
+							this.point[1].xEdge += -ux;
+							this.point[1].yEdge += -uy;
+							
+							this.point[0].xEdge += ux;
+							this.point[0].yEdge += uy;
+							
+							
+							
+						}
+						
+						draw(){
+							ctx.beginPath();
+							ctx.moveTo(this.point[0].x,this.point[0].y);
+							ctx.lineTo(this.point[1].x,this.point[1].y);
+							ctx.stroke();
+						}
+					}
+					
+					class button{
+						constructor(x,y,width,height,radius,text){
+							this.x=x;
+							this.y=y;
+							this.width=width;
+							this.height=height;
+							this.width2=width/2;
+							this.height2=height/2;
+							this.text=text;
+							this.radius=radius;
+							this.backgroundColor="#888";
+							this.textColor="#222";
+							buttonList.push(this);
+						}
+						
+						draw(){
+							ctx.save();
+							ctx.translate(this.x+this.width2,this.y+this.height2)
+							ctx.beginPath();
+							ctx.moveTo(this.width2-this.radius,-this.height2)
+							
+							ctx.quadraticCurveTo(this.width2,-this.height2,this.width2,-this.height2+this.radius)
+							
+							ctx.lineTo(this.width2,this.height2-this.radius)
+							
+							ctx.quadraticCurveTo(this.width2,this.height2,this.width2-this.radius,this.height2)
+							
+							ctx.lineTo(-this.width2+this.radius,this.height2)
+							
+							ctx.quadraticCurveTo(-this.width2,this.height2,-this.width2,this.height2-this.radius)
+							
+							ctx.lineTo(-this.width2,-this.height2+this.radius)
+							
+							ctx.quadraticCurveTo(-this.width2,-this.height2,-this.width2+this.radius,-this.height2)
+							
+							ctx.closePath();
+
+							
+							
+							//ctx.rect(-this.width2,-this.height2,this.width,this.height);
+							ctx.fillStyle=this.backgroundColor;
+							ctx.fill();
+							ctx.fillStyle=this.textColor;
+							ctx.fillText(this.text, 0, 0);
+							ctx.stroke();
+							ctx.restore();
+						}
+					}
+
+					new point(canvas.width/2,canvas.height-50).fill=1;forceList.pop();
+					new point(canvas.width*0.1,canvas.height-150).fill=1;forceList.pop();
+					new point(canvas.width*0.2,canvas.height-100).fill=1;forceList.pop();
+					new point(canvas.width*0.8,canvas.height-100).fill=1;forceList.pop();
+					new point(canvas.width*0.9,canvas.height-150).fill=1;forceList.pop();
+					
+					let butt = new button(20,20,80,40,10,"Simulate");
+					butt.mode=0;
+					
+					butt.click=function(){
+					this.mode=!this.mode;
+						if(this.mode){//0 -> 1, we are DOING IT LIVE! 
+							this.backgroundColor="#5d7"
+							for(let i=0;i<pointList.length;++i){
+								historyList.push([
+									i,
+									pointList[i].x,
+									pointList[i].y
+								]);
+								
+								pointList[i].xAcceleration=0;
+								pointList[i].yAcceleration=0;
+								pointList[i].xSpeed=0;
+								pointList[i].ySpeed=0;
+								
+							}
+							
+							for(let i=0;i<edgeList.length;++i){
+								let dx = edgeList[i].point[0].x-edgeList[i].point[1].x;
+								let dy = edgeList[i].point[0].y-edgeList[i].point[1].y;
+								edgeList[i].distance=Math.sqrt(dx*dx+dy*dy);
+								edgeList[i].error=0;
+								edgeList[i].oldError=0;
+							}
+							
+						}else{//1 -> 0, we're going offline
+							this.backgroundColor="#888"
+							while(historyList.length){
+								let temp = historyList.pop();
+								let j = temp[0];
+								if(j<pointList.length){//maybe I deleted stuff... during simulation
+									pointList[j].x = temp[1];
+									pointList[j].y = temp[2];
+								}
+							}
+						}
+					}
+				
+					
+					canvas.onmouseup=function(e){
+						let x =(e.clientX-canvas.left);
+						let y =(e.clientY-canvas.top);
+						
+						if(e.which==1){//LMB
+							canvas.grab=0;
+
+							//button check
+							for(let i=0;i<buttonList.length;++i){
+								if(x>buttonList[i].x){
+									if(x<(buttonList[i].x+buttonList[i].width)){
+										if(y>buttonList[i].y){
+											if(y<(buttonList[i].y+buttonList[i].height)){
+												buttonList[i].click();
+												return 0;
+											}
+										}
+									}
+								}
+							}
+						}else if(e.which==2){//MMB
+							let i=0
+							let check=0;
+							for(;i<pointList.length;++i){
+								let dx=x-pointList[i].x;
+								let dy=y-pointList[i].y;
+								let distance2 = dx*dx+dy*dy
+								if(distance2<100){
+									check=1
+									break;
+								}
+							}
+							
+							for(let j=0;j<forceList.length;++j){
+								if(pointList[i]==forceList[j]){
+									check=0;
+									pointList[i].fill=1;
+									forceList.splice(j,1)
+									break;
+								}
+							}
+							if(check){
+								pointList[i].fill=0;
+								forceList.push(pointList[i])
+							}
+						}
+					}
+					
+					canvas.onmouseleave=function(){
+						canvas.grab=0;
+					}
+					
+					
+					canvas.onmousedown=function(e){
+						if(e.which==1){//LMB
+							//canvas.grab=0;
+							let x =(e.clientX-canvas.left);
+							let y =(e.clientY-canvas.top);
+							//button check
+							let minDistance = -1;
+							let id = 0;
+							
+							for(let i=0;i<pointList.length;++i){
+								let dx=x-pointList[i].x;
+								let dy=y-pointList[i].y;
+								let distance2 = dx*dx+dy*dy
+								if(i){
+									if(distance2<minDistance){
+										minDistance=distance2;
+										id=i;
+									}
+								}else{
+									minDistance=distance2;
+								}
+							}
+							
+							if(minDistance<100){//32 pixels
+								canvas.grab=pointList[id];
+								canvas.grab.x=x;
+								canvas.grab.y=y;
+								canvas.i=id;
+							}
+						}
+					}
+					
+					canvas.ondblclick=function(e){
+						let x =(e.clientX-canvas.left);
+						let y =(e.clientY-canvas.top);
+						
+						for(let i=0;i<pointList.length;++i){//DELETE
+							if(pointList[i].x==x){
+								if(pointList[i].y==y){//found point to delete
+								
+									for(let j=0;j<pointList[i].edge.length;++j){
+									
+										for(let m=0;m<edgeList.length;++m){
+											//remove edge from edgelist
+											if(edgeList[m]==pointList[i].edge[j]){
+												edgeList.splice(m,1)
+												break;
+											}
+										}
+										
+										for(let k=0;k<2;++k){
+											if(pointList[i].edge[j].point[k]!=pointList[i]){
+												
+												for(let l=0;l<pointList[i].edge[j].point[k].edge[l];++l){
+													if(pointList[i].edge[j].point[k].edge[l]==pointList[i].edge[j]){
+														pointList[i].edge.splice(j--,1)
+														//remove edge from point
+														
+														pointList[i].edge[j].point[k].edge.splice(l--,1)
+														//remove edge from other point
+														
+														pointList.splice(i--,1)
+														//remove point from pointlist
+														return 0;//after our point and edges are gone, let's leave
+													}
+												}
+											};
+										}
+									}
+									
+									pointList.splice(i,1)
+									return 0;//maybe our point had no edges, let's get out in this case too
+								}
+							}
+						}
+						
+						new point(x,y);
+					}
+					
+					
+					let state=0;
+					canvas.onmousemove=function(e){
+						
+						let x =(e.clientX-canvas.left);
+						let y =(e.clientY-canvas.top);
+						
+						canvas.other=0;
+						if(canvas.grab){
+							canvas.grab.x=x;
+							canvas.grab.y=y;
+							let outside=1;
+							
+							for(let i=0;i<pointList.length;++i){
+								if(canvas.i!=i){
+									let dx=x-pointList[i].x;
+									let dy=y-pointList[i].y;
+									let distance2 = dx*dx+dy*dy
+									
+									if(distance2<1024){
+										outside=0;
+									}
+									
+									if(distance2<400){
+										
+										if(state==0){
+											state=1;
+											canvas.other=pointList[i];
+										}
+										break;
+									}
+								}
+							}
+							
+							if(outside){
+								if(state==2){
+									state=0;
+								}
+							}
+							
+							if(state==1){
+							
+								state=2;
+								let addEdge=1;
+								let i=0;
+								let j=0;
+								
+								for(;i<canvas.grab.edge.length;++i){
+									j=0;
+									for(;j<canvas.other.edge.length;++j){
+										if(canvas.grab.edge[i]==canvas.other.edge[j]){
+											addEdge=0;
+											break;
+										}
+									}
+									if(!addEdge){break}
+								}
+								
+								if(addEdge){//add another edge
+									new edge(canvas.grab,canvas.other)
+								}else{//remove the edge
+									canvas.other.edge.splice(j,1)
+									for(j=0;j<edgeList.length;++j){
+										if(canvas.grab.edge[i]==edgeList[j]){
+											edgeList.splice(j,1)
+											break;
+										}
+									}
+									canvas.grab.edge.splice(i,1)
+								}
+							}
+						}
+					}
+					
+											
+						
+					
+					
+					let draw = function(){
+						//ctx.save();
+						//ctx.restore();
+						//ctx.setTransform
+						//ctx.rotate
+						//ctx.translate
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						
+						
+						if(butt.mode){
+							for(let j=0;j<20;++j){
+								for(let i=0;i<edgeList.length;++i){
+									edgeList[i].simulate();
+								}
+								for(let i=0;i<forceList.length;++i){
+									forceList[i].simulate();
+								}
+							}
+						}
+						
+						
+						
+						ctx.textAlign="center";
+						ctx.textBaseline = "middle"; 
+						ctx.font = "15px Calibri";
+						
+						for(let i=0;i<buttonList.length;++i){
+							buttonList[i].draw();
+						}
+						
+						for(let i=0;i<edgeList.length;++i){
+							edgeList[i].draw();
+						}
+						ctx.lineWidth=2;
+						for(let i=0;i<pointList.length;++i){
+							pointList[i].draw();
+						}
+						
+						ctx.fillText("Move points with LMB drag",canvas.width/2,10)
+						ctx.fillText("Make/remove edges by moving points to other points",canvas.width/2,30)
+						ctx.fillText("Double click to add/remove points",canvas.width/2,50)
+						ctx.fillText("Middle click to make a point fixed/unfixed",canvas.width/2,70)
+						
+						requestAnimationFrame(draw);
+					}
+
+					requestAnimationFrame(draw);
+					
+				}catch(e){alert(e);}//debugging alerts
+      }
+    
+			
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
