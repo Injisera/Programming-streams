@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <title>base</title>
+    <meta charset="utf-8">
+		<style>
+			body,canvas{
+				background-color:#fff;
+				padding:0px;
+				margin:0px;
+				border:0px;
+				overflow:hidden;
+				width:100%;
+				height:100%;
+			}
+			
+			canvas{
+				position:relative;
+				background-color:#ddd;
+			}
+			
+		</style>
+    <script type="text/javascript">
+			
+			onload=function(){
+				try{		
+
+
+					//PinkFluffyLlama proposed
+					//that I should kill half 
+					//keep other half (no bottleneck)
+					
+					//me, came up with idea, ooga booga
+					//maybe reactivate coins after you leave them
+					
+					const canvas = document.body.appendChild(document.createElement("canvas"));
+					const ctx=canvas.getContext("2d");
+					const degtorad = Math.PI/180;
+					const PI2 = Math.PI*2;
+					
+					let outsideList = [];
+					let buttonList = [];
+					let newOutside = [];
+					let coinList = [];
+					let carList = [];
+					
+					canvas.width=640;
+					canvas.height=480;
+					
+					canvas.style.width=canvas.width+"px";
+					canvas.style.height=canvas.height+"px";
+					
+					onresize = function(e){
+						canvas.left=(window.innerWidth-canvas.width)>>1;
+						canvas.top=(window.innerHeight-canvas.height)>>1;
+						
+						canvas.style.left=canvas.left+"px";
+						canvas.style.top=canvas.top+"px";
+					}
+					onresize();//call it an extra time so everything is centered when you start
+					
+					//CORRECT
+//					a b c d   j    = a*j+b*k+c*L+d
+//					e f g h   k    = e*j+f*k+h*L+h
+//									  L
+//										1
+
+					
+					mul = function(A,b){//a = matrix, b = vector
+						let B = [];
+						for(let i=0;i<b.length;++i){
+							B[i]=b[i];
+						}
+						
+						for(let i=0;i<A.length;++i){
+							let sum=A[i][b.length];
+							for(let j=0;j<b.length;++j){
+								sum+=A[i][j]*B[j];
+							}
+							
+							b[i]=sum;
+						}
+					}
+					
+					class outside{
+						constructor(points){
+							this.point=points;
+							outsideList.push(this);
+						}
+						
+						draw(){
+							if(this.point.length){
+								ctx.moveTo(this.point[0][0],this.point[0][1])
+								for(let i=1;i<this.point.length;++i){
+									ctx.lineTo(this.point[i][0],this.point[i][1])
+								}
+								ctx.closePath();
+							}else{
+								console.log("some outside got no points defining it :(")
+							}
+						}
+					}
+					
+					class button{
+						constructor(x,y,w,h,text,click){
+							this.x = x;
+							this.y = y;
+							this.w = w;
+							this.h = h;
+							this.w2 = w/2;
+							this.h2 = h/2;
+							this.state=0;
+							this.text=text;
+							this.backgroundColor="#eee";
+							this.activeColor = "#8d8";
+							this.textColor="#222";
+							this.click=click;
+							buttonList.push(this);
+						}
+						
+						draw(){
+							ctx.beginPath();
+							ctx.rect(this.x,this.y,this.w,this.h);
+							if(this.state){
+								ctx.fillStyle=this.activeColor;
+							}else{
+								ctx.fillStyle=this.backgroundColor;
+							}
+							ctx.fill();
+							ctx.fillStyle=this.textColor;
+							ctx.fillText(this.text, this.x+this.w2, this.y+this.h2);
+							ctx.stroke();
+						}
+					}
+					
+					class coin{
+						constructor(x,y,r,value){
+							this.x=x;
+							this.y=y;
+							this.r=r;
+							this.r2 = r*r;
+							this.value=value;
+							coinList.push(this);
+						}
+						
+						draw(){
+							ctx.arc(this.x,this.y,this.r,0,PI2);
+						}
+						
+					}
+							
+					class sensor{
+						constructor(vectorX,vectorY,car){
+							this.vectorX=vectorX;//real
+							this.vectorY=vectorY;//imaginary
+							this.car=car;
+							this.senseDistance = 0;
+							this.distance = 0;							
+						}
+						
+						sense(){
+							let x = this.car.x;
+							let y = this.car.y;
+							
+							let distance = this.senseDistance;
+							
+							let localVectorX = this.vectorX*this.car.vectorX-this.vectorY*this.car.vectorY;
+							let localVectorY = this.vectorY*this.car.vectorX+this.vectorX*this.car.vectorY;
+							
+							
+							for(let i=0;i<distance;i+=5){
+								if(ctx.isPointInPath(x+localVectorX*i,y+localVectorY*i)){
+									distance=i;
+								}
+							}
+							if(distance==0){
+								this.car.kaputt();
+							}
+							this.distance = distance;
+						}
+						
+						draw(){
+							let x = this.vectorX*this.distance;
+							let y = this.vectorY*this.distance;
+							
+							ctx.beginPath();
+							ctx.moveTo(0,0);
+							ctx.lineTo(x,y);
+							ctx.stroke();
+							ctx.beginPath();
+							ctx.rect(x-5,y-5,10,10)
+							ctx.stroke();
+						}
+					}
+					
+					class car{
+					
+					
+						constructor(x,y,w,h,n,layer){
+							//this.weight=[];//fix this later
+							//this.bias;//for later with ai
+							
+							this.startX=x;
+							this.startY=y;
+							
+							this.x = x
+							this.y = y;
+							
+							this.w = w;
+							this.h = h;
+							this.n = n;
+							
+							this.layer=layer;
+							this.weight = new Array(n);
+							for(let i=0;i<n;++i){
+								this.weight[i] = new Array(n+1)
+								for(let j=0;j<n+1;++j){
+									this.weight[i][j]=(Math.random()-0.5)*5;
+								}
+							}
+							
+							this.speed = 1;
+							this.alive=1;
+							this.w2 = w/2;
+							this.h2 = h/2;
+							
+							this.highscore=0;
+							this.resetCoin();
+							this.sensor=[];
+							
+							let numberOfSensors = n-2;//poop
+							for(let i=0;i<=1;i+=1/(numberOfSensors-1)){
+								let j = (i-0.5)*90;
+								this.sensor.push(new sensor(
+										Math.cos(j*degtorad),
+										Math.sin(j*degtorad),
+										this
+									));
+								this.sensor[this.sensor.length-1].senseDistance=200*Math.cos(j*degtorad);
+							}
+							
+							
+							this.rotation = 0;
+							this.vectorX = 1;
+							this.vectorY = 0;
+							carList.push(this)
+						}
+						
+						reset(){
+							this.x = this.startX;
+							this.y = this.startY;
+							this.speed=1;
+							this.rotation=0;
+							
+							this.highscore=0;
+							this.alive=1;
+							this.resetCoin();
+						}
+						
+						kaputt(){
+							this.alive=0;
+							//this.highscore += -100;
+							
+						}
+						
+						simulate(){//do some ai stuff here :D
+						
+							if(this.alive){
+								
+								this.vectorX = Math.cos(this.rotation*degtorad);
+								this.vectorY = Math.sin(this.rotation*degtorad);
+								
+								for(let i=0;i<this.sensor.length;++i){
+									this.sensor[i].sense();
+								}
+								
+								for(let i=0;i<this.coin.length;++i){
+								
+									let x = this.x+this.vectorX*this.w2;
+									let y = this.y+this.vectorY*this.w2;
+									
+									let dx = this.coin[i].x-x;
+									let dy = this.coin[i].y-y;
+																	
+									let distance2 = dx*dx+dy*dy;
+									
+									if(distance2 < this.coin[i].r2){
+										this.highscore+=this.coin[i].value;
+										this.coin.splice(i--,1)
+									}
+								}
+								
+								let b = new Array(this.n);
+								for(let i=0;i<this.sensor.length;++i){
+									b[i]=this.sensor[i].distance;
+								}
+								for(let i=this.sensor.length;i<this.n;++i){
+									b[i]=0;
+								}
+								
+								mul(this.weight,b)
+								
+								for(let i=1;i<this.layer;++i){
+									this.activate(b)
+									mul(this.weight,b)
+								}
+								
+								this.rotation+=b[0];
+								this.speed=b[1];
+								
+								this.x+=this.speed*this.vectorX
+								this.y+=this.speed*this.vectorY
+								
+							}
+							
+						}
+						
+						
+						
+						activate(x){//activation function
+							for(let i=0;i<x.length;++i){
+								x[i]=(2/(1+Math.exp(-x[i])))-1;//sigmoid
+							}
+						}
+						
+						draw(){
+							ctx.save();
+							
+							ctx.translate(this.x,this.y)
+							ctx.rotate(this.rotation*degtorad);
+							ctx.lineWidth = 1;
+							ctx.strokeStyle = "#222";
+							this.sensor.forEach((sensor)=>{
+								sensor.draw();
+							})
+							
+							ctx.fillStyle = "#f33";
+							ctx.strokeStyle = "#a22";
+							ctx.lineWidth = 2;
+							ctx.beginPath();
+
+							
+							
+							
+							//ctx.rect(-this.w2,-this.h2,this.w,this.h)
+							ctx.moveTo(-this.w2,-this.h2)
+							ctx.lineTo(-this.w2,this.h2)
+							ctx.lineTo(this.w2,0)
+							
+							
+							ctx.closePath();
+							ctx.fill();
+							ctx.stroke();
+							
+
+							
+							ctx.restore();
+						}
+						
+						resetCoin(){
+							this.coin=[];
+							for(let i=0;i<coinList.length;++i){
+								this.coin[i]=coinList[i];
+							}
+						}
+						
+					}
+					
+					let currency=0;
+					let terrain=0;
+					let makingOutside=0;
+					let playing=0;
+					
+					
+					new button(10,10,80,40,"Terrain",function(){
+						this.state=!this.state;
+						terrain=this.state;
+						
+						buttonList[2].state=0;
+						buttonList[1].state=0;
+						playing=0;
+						currency=0;
+					})
+					
+					new button(10,60,80,40,"Coins",function(){
+						this.state=!this.state;
+						currency=this.state;
+						
+						buttonList[2].state=0;
+						buttonList[0].state=0;
+						
+						playing=0;
+						terrain=0;
+					})
+					
+					new button(10,110,80,40,"Play",function(){
+						this.state=!this.state;
+						playing=this.state;
+						
+						buttonList[0].state=0;
+						buttonList[1].state=0;
+						currency=0;
+						terrain=0;
+					})
+					
+					new button(10,160,80,40,"Save Map",function(){
+						let str="";
+						for(let i=0;i<outsideList.length;++i){
+							str+="new outside(["
+							for(let j=0;j<outsideList[i].point.length;++j){
+								if(j){
+									str+=",";
+								}
+								str+="["+outsideList[i].point[j][0]+","+outsideList[i].point[j][1]+"]"
+							}
+							str+="]);\n";
+						}
+						
+						
+						for(let i=0;i<coinList.length;++i){
+							str+="\nnew coin(";
+
+							str+=coinList[i].x+",";
+							str+=coinList[i].y+",";
+							str+=coinList[i].r+",";
+							str+=coinList[i].value;
+							
+							str+=");";
+						}
+						
+						alert(str)
+					})
+										
+					let mouseX =0;
+					let mouseY =0;
+					
+					canvas.onmousemove=function(e){
+						mouseX = e.clientX-canvas.left
+						mouseY = e.clientY-canvas.top
+						
+						if(makingOutside){
+							newOutside.push([mouseX,mouseY]);
+						}
+					}
+					
+					canvas.onmouseup=function(e){
+
+						mouseX = e.clientX-canvas.left
+						mouseY = e.clientY-canvas.top
+						
+						if(e.which==1){//LMB
+							for(let i=0;i<buttonList.length;++i){
+								if(mouseX < (buttonList[i].x+buttonList[i].w)){
+									if(mouseY < (buttonList[i].y+buttonList[i].h)){
+										if(mouseY > buttonList[i].y){
+											if(mouseX > buttonList[i].x){
+												buttonList[i].click();
+											}
+										}
+									}
+								}
+							}
+							if(makingOutside){
+								new outside(newOutside)
+								makingOutside=0;
+							}
+
+						}else if(e.which==2){//MMB
+							if(terrain){
+								if(outsideList.length){
+									outsideList.pop();
+								}
+							}
+							if(currency){
+								if(coinList.length){
+									coinList.pop();
+								}
+							}
+						}
+					}
+					
+					canvas.onmousedown=function(e){
+						mouseX = e.clientX-canvas.left
+						mouseY = e.clientY-canvas.top
+						if(e.which==1){//LMB
+							if(terrain){
+								makingOutside=1;
+								newOutside=[[mouseX,mouseY]];
+							}
+							if(currency){
+								new coin(mouseX,mouseY,20,100);
+							}
+						}
+					}
+					
+										
+					new coin(544,203,40,100);
+					new coin(479,343,40,100);
+					new coin(378,382,40,100);
+					new coin(247,387,40,100);
+					new coin(193,270,40,100);
+					new coin(259,125,40,100);
+					
+					for(let i=0;i<20;++i){
+						new car(400,100,40,20,8,3)
+						//8 = 8x8 weight matrix + 8 bias terms -> 8x9 matrix
+						//3 = input -> hidden -> hidden -> output
+						//each -> = 1 step, 3 steps = 3 ->
+					}
+					
+					new outside([[103,42],[104,42],[105,42],[107,42],[112,42],[121,41],[132,39],[153,36],[169,35],[187,35],[205,35],[219,35],[230,35],[240,35],[250,36],[260,37],[270,37],[282,37],[294,37],[313,37],[327,37],[343,38],[359,39],[376,40],[393,41],[412,41],[429,41],[446,41],[465,44],[481,45],[498,48],[513,51],[531,56],[539,57],[545,58],[551,60],[557,62],[563,64],[567,66],[570,69],[574,72],[578,77],[583,84],[592,99],[596,111],[600,125],[602,139],[605,151],[606,158],[606,166],[606,176],[605,186],[602,200],[602,214],[602,229],[601,249],[599,260],[597,271],[594,285],[593,299],[593,311],[593,324],[592,335],[592,343],[592,352],[592,362],[592,372],[592,381],[592,394],[592,400],[592,406],[592,411],[592,416],[592,419],[591,422],[590,427],[588,431],[586,436],[579,443],[572,447],[566,451],[560,453],[550,455],[538,455],[521,455],[501,455],[481,455],[461,455],[442,455],[423,455],[406,455],[382,455],[367,455],[352,455],[335,454],[320,451],[307,448],[295,447],[284,447],[274,447],[264,447],[256,446],[248,446],[241,446],[233,446],[227,446],[220,445],[213,444],[207,444],[198,444],[189,444],[181,444],[172,444],[166,444],[160,444],[154,444],[146,444],[142,444],[138,444],[133,444],[128,444],[122,444],[114,442],[108,440],[104,437],[100,434],[98,430],[93,419],[90,411],[89,402],[88,395],[88,387],[88,379],[88,370],[88,361],[89,352],[91,345],[92,337],[94,328],[94,319],[96,307],[96,299],[96,290],[96,281],[97,271],[99,264],[100,258],[100,252],[101,245],[102,239],[102,233],[102,228],[102,222],[101,216],[101,211],[101,205],[101,200],[101,192],[101,184],[101,176],[100,167],[99,161],[99,155],[99,146],[99,138],[99,133],[99,127],[99,122],[99,117],[99,112],[97,106],[97,101],[95,95],[95,91],[95,87],[94,83],[94,79],[94,78],[94,76]]);
+					new outside([[569,145],[567,144],[565,142],[561,139],[556,134],[551,129],[544,123],[535,116],[524,108],[514,103],[497,94],[487,91],[481,89],[476,87],[470,87],[462,85],[455,85],[446,85],[435,85],[423,85],[412,85],[404,85],[394,85],[387,85],[379,85],[369,85],[360,85],[351,86],[344,88],[336,90],[328,92],[318,95],[304,97],[288,100],[261,106],[244,109],[231,112],[221,115],[217,117],[215,119],[214,122],[212,126],[209,131],[206,138],[203,145],[200,154],[194,164],[190,170],[188,177],[185,185],[183,195],[181,206],[179,218],[177,229],[174,240],[173,249],[172,261],[171,274],[171,283],[171,292],[171,300],[171,309],[171,318],[171,327],[172,336],[174,345],[176,354],[179,366],[181,375],[183,383],[189,394],[193,398],[197,402],[204,404],[212,407],[222,407],[239,407],[261,407],[283,407],[304,407],[322,407],[342,407],[354,407],[365,405],[375,404],[383,403],[391,403],[397,403],[405,401],[412,400],[420,399],[429,397],[439,395],[448,393],[462,390],[468,388],[472,386],[475,385],[477,383],[481,380],[485,378],[489,375],[493,372],[498,369],[502,366],[505,360],[509,349],[510,343],[511,336],[512,331],[513,324],[514,319],[515,312],[516,306],[517,301],[519,295],[520,290],[521,285],[522,279],[523,273],[524,270],[525,267],[526,265],[526,264],[526,263],[527,261],[527,259],[529,258],[532,256],[535,254],[539,250],[542,247],[545,244],[550,240],[556,235],[560,232],[563,228],[564,226],[565,224],[566,223],[567,221],[569,217],[570,213],[570,210],[571,207],[571,204],[572,201],[573,198],[573,195],[573,191],[573,187],[573,182],[572,178],[571,172],[571,169],[570,167],[569,165]]);
+					new outside([[255,157],[255,155],[256,155],[259,154],[260,154],[264,153],[267,151],[272,149],[276,148],[279,147],[283,145],[286,144],[290,142],[293,141],[298,139],[302,137],[305,136],[307,136],[312,135],[318,134],[325,132],[333,131],[340,130],[344,128],[348,128],[352,127],[356,126],[359,125],[362,125],[365,124],[370,123],[376,123],[381,123],[385,123],[388,123],[389,123],[391,123],[393,123],[397,123],[401,123],[404,123],[406,123],[408,123],[413,123],[416,123],[420,123],[422,123],[423,123],[425,123],[427,123],[430,124],[432,124],[436,125],[438,125],[441,125],[444,127],[447,127],[449,127],[451,128],[452,129],[454,130],[457,130],[459,131],[460,132],[463,133],[466,134],[469,135],[475,138],[480,140],[483,142],[488,144],[491,147],[494,149],[497,150],[498,151],[499,152],[500,153],[501,155],[502,156],[503,158],[504,160],[505,162],[506,164],[507,166],[508,167],[508,168],[508,169],[509,171],[509,173],[509,175],[509,178],[509,180],[509,183],[509,186],[509,187],[509,189],[509,191],[507,194],[504,195],[502,198],[500,199],[499,200],[498,202],[497,203],[496,204],[495,205],[494,207],[493,207],[493,208],[493,210],[492,211],[492,213],[492,214],[492,216],[492,218],[490,221],[490,223],[489,226],[489,228],[488,232],[488,235],[487,238],[487,243],[487,246],[486,251],[486,253],[486,256],[486,260],[486,263],[486,266],[486,269],[486,272],[486,275],[486,277],[486,280],[486,282],[486,284],[485,289],[484,292],[482,296],[480,299],[479,301],[478,305],[475,308],[473,311],[472,314],[470,318],[468,321],[467,322],[466,324],[465,326],[463,327],[463,328],[462,329],[461,330],[459,332],[458,333],[455,335],[449,338],[446,340],[443,342],[440,344],[436,346],[431,349],[428,351],[424,352],[421,353],[418,354],[415,355],[411,356],[406,357],[402,358],[400,359],[398,359],[395,359],[391,359],[387,359],[383,359],[377,359],[371,360],[367,361],[364,361],[359,361],[355,361],[353,361],[352,361],[350,361],[348,361],[347,361],[345,361],[343,361],[341,361],[340,361],[338,361],[335,362],[332,362],[330,362],[327,363],[325,363],[323,363],[322,364],[320,364],[318,365],[317,365],[315,366],[314,366],[311,366],[309,366],[306,366],[304,366],[302,366],[299,366],[296,366],[292,366],[290,367],[288,367],[286,367],[284,367],[280,367],[276,367],[274,367],[270,367],[269,367],[268,367],[267,367],[266,367],[265,367],[262,367],[259,367],[257,367],[255,367],[254,367],[252,367],[251,367],[250,367],[248,367],[247,367],[245,366],[244,366],[242,366],[239,364],[238,364],[235,363],[233,362],[231,361],[230,360],[229,359],[228,358],[227,357],[225,354],[225,351],[224,347],[223,343],[221,339],[221,336],[221,333],[221,331],[221,329],[221,326],[221,324],[221,320],[221,317],[221,314],[221,311],[221,307],[221,303],[221,300],[221,297],[221,294],[221,291],[221,288],[221,286],[221,284],[221,281],[221,277],[221,275],[221,273],[221,271],[221,268],[222,265],[222,263],[223,259],[224,257],[224,255],[225,252],[225,249],[225,247],[227,242],[227,240],[228,234],[229,231],[230,227],[230,225],[231,223],[231,220],[232,218],[232,216],[232,215],[232,214],[232,213],[232,212],[233,211],[233,208],[233,206],[234,204],[234,202],[234,200],[235,196],[235,195],[235,194],[236,193],[236,192],[236,190],[237,188],[237,187],[237,186],[237,185],[237,184],[238,182],[239,181],[239,178],[240,177],[240,176],[240,175],[240,174],[241,173],[242,172],[242,171],[244,169],[245,167],[245,166],[246,165]]);
+
+					
+					
+					let t = 0;
+					
+					let draw = function(){
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						
+						ctx.fillStyle = "#be2";
+						ctx.strokeStyle = "#222";
+						ctx.lineWidth = 3;
+						ctx.beginPath();					
+						
+						
+						outsideList.forEach((element)=>{element.draw()})
+						
+						if(makingOutside){
+							ctx.moveTo(newOutside[0][0],newOutside[0][1])
+							for(let i=1;i<newOutside.length;++i){
+								ctx.lineTo(newOutside[i][0],newOutside[i][1])
+							}
+						}
+						
+						ctx.closePath();
+						ctx.fill();
+						ctx.stroke();
+						
+						if(playing){
+							t+=1;
+							if(t>60*5){
+								t=0;
+								let maxScore = -500;
+								let car = 0;
+								
+								carList.forEach((cars)=>{
+									if(cars.highscore>maxScore){
+										car = cars;
+										maxScore = cars.highscore;
+									}
+									cars.reset()
+								})
+								for(let i=0;i<carList.length;++i){
+									if(carList[i]==car){continue;}								
+									for(let j=0;j<carList[i].weight.length;++j){
+										for(let k=0;k<carList[i].weight[j].length;++k){
+											carList[i].weight[j][k]=car.weight[j][k]
+											+(Math.random()-0.5)*1;
+										}
+									}
+								}
+							}
+						
+						
+							carList.forEach((cars)=>{
+								cars.simulate();
+								//cars.rotation+=10*Math.random();
+							})
+						}
+							
+						
+						ctx.fillStyle = "#fd2";
+						ctx.strokeStyle = "#222";
+						ctx.lineWidth = 2;
+								
+						coinList.forEach((element)=>{
+							ctx.beginPath();
+							element.draw()
+							ctx.closePath();
+							ctx.fill();
+							ctx.stroke();
+						})
+						
+						
+						carList.forEach((cars)=>{cars.draw();})
+						
+
+						
+						
+						ctx.strokeStyle = "#222";						
+						ctx.textAlign="center";
+						ctx.textBaseline = "middle"; 
+						ctx.font = "15px Calibri";
+						ctx.lineWidth = 2;
+						
+						buttonList.forEach((element)=>{element.draw()})					
+						
+						requestAnimationFrame(draw);
+					}
+
+					requestAnimationFrame(draw);					
+				}catch(e){alert(e);}//debugging alerts
+      }
+    
+			
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
