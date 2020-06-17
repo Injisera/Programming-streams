@@ -40,14 +40,6 @@
 					canvas.style.width=canvas.width+"px";
 					canvas.style.height=canvas.height+"px";
 					
-					onresize = function(e){
-						canvas.left=(window.innerWidth-canvas.width)>>1;
-						canvas.top=(window.innerHeight-canvas.height)>>1;
-						
-						canvas.style.left=canvas.left+"px";
-						canvas.style.top=canvas.top+"px";
-					}
-					onresize();//call it an extra time so everything is centered when you start
 					let mouseY = 0
 					let mouseX = 0
 					let mousePress=0
@@ -108,18 +100,17 @@
 					}
 
 					const C = 2 //speed of wave
-					const decay = 0.99
+					const decay = 0.999
 					let t = 0
 
 					let draw = async function(){
 
 						t+=0.1
-						p[20][40] = Math.sin(t)*5
+						p[20][400] = Math.sin(t)*2
 
 						for(let i=0;i<5;++i){
-							p[15+i][15] = Math.sin(t*2)*5
+							p[15+i][15] = Math.sin(t*2)*2
 						}
-						//p[0]=mouseY
 
 						for(let h=1;h<height-1;++h){
 							for(let w=1;w<width-1;++w){
@@ -140,15 +131,19 @@
 						}
 
 						async function data_to_rgb(h,w,p,img){
-							let v = (p+1)*0.5
 							let offset = (h*width+w)*4
-							let p1 = 1-v
-							let p2 = v*v
+
+							var a = p+1;
+							var A = a*a;
+							var b = p-1;
+							var B = b*b;
 							
-							let scalar = (o[h][w])*255
-							img.data[offset] = p1*p1*scalar
-							img.data[offset+1] = (-p2+v)*scalar*3
-							img.data[offset+2] = p2*scalar
+							let scalar = 
+
+							img.data[offset] =	 120*A*(o[h][w])
+							img.data[offset+1] = 240*A*B*(o[h][w])
+							img.data[offset+2] = 120*B*(o[h][w])
+
 						}
 
 						let task = []

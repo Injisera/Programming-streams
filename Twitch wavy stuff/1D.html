@@ -33,17 +33,9 @@
 					canvas.style.width=canvas.width+"px";
 					canvas.style.height=canvas.height+"px";
 					
-					onresize = function(e){
-						canvas.left=(window.innerWidth-canvas.width)>>1;
-						canvas.top=(window.innerHeight-canvas.height)>>1;
-						
-						canvas.style.left=canvas.left+"px";
-						canvas.style.top=canvas.top+"px";
-					}
-					onresize();//call it an extra time so everything is centered when you start
 					let mouseY = 0
 					canvas.onmousemove=function(e){
-						mouseY = e.clientY-canvas.top
+						mouseY = e.clientY
 					}
 
 					const points = 100
