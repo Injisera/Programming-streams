@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+	<title>Wave em like crimsonfrutah</title>
+	<meta charset="utf-8">
+		<style>
+			body,canvas{
+				background-color:#fff;
+				padding:0px;
+				margin:0px;
+				border:0px;
+				overflow:hidden;
+				width:100%;
+				height:100%;
+			}
+			
+			canvas{
+				position:relative;
+				background-color:#ccc;
+			}
+			
+		</style>
+    <script type="text/javascript">
+			
+			onload=function(){
+				try{		
+
+					let canvas = document.body.appendChild(document.createElement("canvas"));
+					const ctx=canvas.getContext("2d");
+					canvas.width=640;
+					canvas.height=480;
+					
+					canvas.style.width=canvas.width+"px";
+					canvas.style.height=canvas.height+"px";
+					
+					onresize = function(e){
+						canvas.left=(window.innerWidth-canvas.width)>>1;
+						canvas.top=(window.innerHeight-canvas.height)>>1;
+						
+						canvas.style.left=canvas.left+"px";
+						canvas.style.top=canvas.top+"px";
+					}
+					onresize();//call it an extra time so everything is centered when you start
+					let mouseY = 0
+					canvas.onmousemove=function(e){
+						mouseY = e.clientY-canvas.top
+					}
+
+					let dposition=0
+					let position=250
+					const C = 0.1 //speed of wave
+					const decay = 0.9
+
+					let draw = function(){
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+					
+						dposition+=(mouseY-position)
+						dposition*=decay
+						position+=dposition*C
+
+						ctx.beginPath();
+						ctx.moveTo(100,mouseY);
+						ctx.lineTo(100,position);
+						ctx.lineWidth=20;
+						ctx.stroke();
+						
+						requestAnimationFrame(draw);
+					}
+
+					requestAnimationFrame(draw);
+
+					
+					
+					//cancelAnimationFrame() if I want to stahp
+					
+				}catch(e){alert(e);}//debugging alerts
+      }
+    
+			
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
