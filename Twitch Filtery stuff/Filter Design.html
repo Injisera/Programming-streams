@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+	<title>Digital Filter</title>
+	<meta charset="utf-8">
+		<style>
+			body,canvas{
+				background-color:#fff;
+				padding:0px;
+				margin:0px;
+				border:0px;
+				overflow:hidden;
+				width:100%;
+				height:100%;
+			}
+			div{
+				position:relative;
+				display:inline-block;
+			}
+
+			label{
+				display:inline-block;
+			}
+
+			div>div>div{
+				display:block;
+			}
+
+			input{
+				display:inline-block;
+				position:relative;
+			}
+			
+			canvas{
+				position:relative;
+				background-color:#ccc;
+			}
+			
+		</style>
+    <script type="text/javascript">
+			class complex{
+				constructor(re,im){
+					this.re = re
+					this.im = im
+				}
+
+				mul(other){
+					[this.re,
+					this.im] = [this.re*other.re-this.im*other.im,
+											this.re*other.im+this.im*other.re]
+				}
+
+				div(other){
+					//ans = (a+bi)/(c+id)
+					//ans = (c-id)(a+bi)/((c-id)(c+id))
+					//ans = ((ac+bd)+i(bc-ad))/(cc+dd)
+					let divisor = other.re*other.re+other.im*other.im;
+	
+					[this.re,
+					this.im] = [this.re*other.re+this.im*other.im,
+											this.im*other.re-this.re*other.im]
+
+					this.re/=divisor
+					this.im/=divisor
+				}
+			}
+
+			function addChild(parent,type){
+				return parent.appendChild(document.createElement(type));
+			}
+
+			function labeledBox(text,par){
+				let div 	= addChild(par,"div");
+				let label	=	addChild(div,"label");
+				label.innerHTML=text
+				let input = addChild(div,"input");
+				return [div,label,input]
+			}	
+
+			function addABbox(labelB,labelA,parent){
+				let div 	= addChild(parent,"div");					
+				return [labeledBox(labelB,div),labeledBox(labelA,div)]
+			}
+
+			function posParser(that,drawCirc){
+				let arr = []
+				const regex = /\(z([+-]\d+\.\d+)?([+-]\d+\.\d+i)?\)/gm;
+				let m;
+
+				while ((m = regex.exec(that.value)) !== null) {
+					// This is necessary to avoid infinite loops with zero-width matches
+					if (m.index === regex.lastIndex) {
+							regex.lastIndex++;
+					}
+					
+					// The result can be accessed through the `m`-variable.
+					
+					let re = 0
+					let im = 0
+					m.forEach((match, groupIndex) => {
+						
+						if(match != undefined){
+							if (groupIndex==1){//re
+								re = -parseFloat(match)
+							}else if (groupIndex==2){//im
+								im = parseFloat(match)
+							}
+						}	
+					});
+					arr.push(new complex(re,im))
+				}
+				drawCirc()
+				return arr
+			}
+
+			onload=function(){
+				try{		
+					
+
+					let div = addChild(document.body,"div");
+					let canvas = addChild(div,"canvas");
+
+					const ctx=canvas.getContext("2d");
+
+					let div_group = addChild(div,"div");
+					let box_eval 	= addChild(div_group,"textarea").value=3;
+
+					canvas.width=640;
+					canvas.height=480
+
+					let splitX = 0.5*canvas.width
+					let splitY = 0.5*canvas.height
+					let fs_value = 0
+
+					const pi2 = 2 * Math.PI
+					const circleX = canvas.width/4
+					const circleY = canvas.height/4
+					const radius  = Math.min(circleX,circleY)-50
+
+					canvas.style.width=
+					div.style.width=
+					canvas.width+"px";
+					canvas.style.height=canvas.height+"px";
+					
+					onresize = function(e){
+						div.left=(window.innerWidth-canvas.width)>>1;						
+						div.style.left=div.left+"px";
+						div.style.top="10px";
+					}
+					onresize();//call it an extra time so everything is centered when you start
+					
+
+					let fs = labeledBox("fs",div_group)
+					fs[2].placeholder="1000"
+					fs[2].value="1000 Hz"
+
+					function drawCircle(){
+
+						ctx.save();
+						ctx.translate(circleX,circleY)
+						ctx.lineWidth=3
+						ctx.beginPath()
+						ctx.arc(0,0,radius,0,pi2)
+						ctx.stroke()
+
+						fs_value = parseInt(fs[2].value)
+						//missing
+						//maybe show kHz and MHz
+						ctx.textAlign = "left"; 
+						ctx.textBaseline = "middle"; 
+						ctx.fillText("0 Hz",radius+5,0)
+						ctx.textAlign = "center"; 
+						ctx.textBaseline = "bottom"; 
+						ctx.fillText(fs_value*0.25 + " Hz",0,-radius-5)
+						ctx.textBaseline = "top"; 
+						ctx.fillText(fs_value*0.75 + " Hz",0,radius+5)
+						ctx.textAlign = "right"; 
+						ctx.textBaseline = "middle"; 
+						ctx.fillText(fs_value*0.5 + " Hz",-radius-5,0)
+						ctx.restore();
+
+					}drawCircle()
+
+					function drawZero(comp_arr){
+						ctx.save();
+						ctx.translate(circleX,circleY)
+						ctx.lineWidth=2
+						ctx.strokeStyle="#22f"
+						ctx.beginPath()
+						comp_arr.forEach((comp) => {
+							let xx = comp.re*radius
+							let yy = comp.im*radius
+							ctx.moveTo(xx+5,yy)
+							ctx.arc(xx,yy,5,0,pi2)
+						})
+						ctx.stroke()
+						ctx.restore()
+					}
+
+					function drawPole(comp_arr){
+						
+						ctx.save();
+						ctx.translate(circleX,circleY)
+						ctx.lineWidth=2
+						ctx.strokeStyle="#f22"
+						
+						let size = 5
+						comp_arr.forEach((comp) => {
+							ctx.beginPath()
+							ctx.save();
+							ctx.translate(comp.re*radius,comp.im*radius)
+							ctx.moveTo(-size,-size)
+							ctx.lineTo(size,size)
+							ctx.moveTo(size,-size)
+							ctx.lineTo(-size,size)
+
+							ctx.stroke()
+							ctx.restore()
+						})
+						ctx.restore()
+					}
+
+					function getHz(a,b){
+						let H = []
+						for(let fi=0;fi<Math.PI;fi+=0.01){ 
+							let c = Math.cos(fi)
+							let s = Math.sin(fi)
+
+							let bTerm = new complex(1,0)
+							let aTerm = new complex(1,0)
+
+							for(let i=0;i<b.length;++i){
+								let temp = new complex(c-b[i].re,s-b[i].im)
+								bTerm.mul(temp)
+							}
+
+							for(let i=0;i<a.length;++i){
+								let temp = new complex(c-a[i].re,s-a[i].im)
+								aTerm.mul(temp)
+							}
+
+							bTerm.div(aTerm)
+
+							H.push(bTerm)
+						}
+						return H
+					}
+					//z = e^(i*2*pi*(500/fs))
+
+					function drawMagnitudeResponse(H){
+						//H = list of complex numbers
+
+						const width = canvas.width-splitX-40
+						const height = splitY-80
+						const scalar = 40
+
+						ctx.save();
+						ctx.translate(splitX,splitY-40)
+						ctx.textAlign = "right"; 
+						ctx.textBaseline = "middle"; 
+
+						ctx.beginPath()//Horizontal lines
+						ctx.setLineDash([5])
+						let dy = 0.5
+
+						for(i=dy;i<=4;i+=dy){
+							let yy = -i*scalar 
+							ctx.fillText(i,-10,yy)
+							if((i%1)==0){
+								ctx.moveTo(0,yy)
+								ctx.lineTo(width,yy)
+							}
+						}
+						ctx.stroke()
+
+						ctx.textAlign = "center"; 
+						ctx.textBaseline = "top"; 
+						ctx.beginPath()//vertical lines
+						
+						let dx = 0.125
+						
+						for(i=dx;i<=0.5;i+=dx){
+							let xx = i*width/0.5
+							let text = i*fs_value+" Hz"
+							
+							ctx.fillText(text,xx,10)
+							ctx.moveTo(xx,5)
+							ctx.lineTo(xx,-height)
+						}
+
+						ctx.stroke()
+						ctx.setLineDash([0])
+
+						ctx.lineWidth=1
+						ctx.beginPath()
+						ctx.moveTo(0,0)
+						ctx.lineTo(width,0)
+						ctx.moveTo(0,-height)
+						ctx.lineTo(0,0)
+						ctx.stroke()
+
+						ctx.lineWidth=2
+						ctx.strokeStyle="#222"
+						ctx.beginPath()
+						dx = width/H.length
+
+						for(let i=0;i<H.length;++i){
+							let aa = H[i].re*H[i].re
+							let bb = H[i].im*H[i].im
+							//(a+ib)(a-ib) == sqrt(aa+bb)
+							ctx.lineTo(i*dx,-Math.sqrt(aa+bb)*scalar)
+						}
+						ctx.stroke()
+						ctx.restore()
+					}
+
+					function drawPhaseResponse(H){
+						//H = list of complex numbers
+
+						const width = canvas.width-splitX-40
+						const height = canvas.height-splitY-80
+						const scalar = 0.5
+
+						ctx.save();
+						ctx.translate(splitX,canvas.height-40-height*0.5)
+						ctx.textAlign = "right"; 
+						ctx.textBaseline = "middle"; 
+
+						ctx.beginPath()//Horizontal lines
+						ctx.setLineDash([5])
+
+						for(i=-180;i<=180;i+=45){
+							let yy = -i*scalar 
+							ctx.fillText(i,-10,yy)
+							if((i%1)==0){
+								ctx.moveTo(0,yy)
+								ctx.lineTo(width,yy)
+							}
+						}
+						ctx.stroke()
+
+						ctx.textAlign = "center"; 
+						ctx.textBaseline = "top"; 
+						ctx.beginPath()//vertical lines
+						
+						let dx = 0.125
+						
+						for(i=dx;i<=0.5;i+=dx){
+							let xx = i*width/0.5
+							let text = i*fs_value+" Hz"
+							
+							ctx.fillText(text,xx,height*0.5+20)
+							ctx.moveTo(xx,height*0.5+5)
+							ctx.lineTo(xx,-height*0.5)
+						}
+
+						ctx.stroke()
+						ctx.setLineDash([0])
+
+						ctx.lineWidth=1
+						ctx.beginPath()
+
+						ctx.moveTo(0,0)
+						ctx.lineTo(width,0)
+
+						ctx.moveTo(0,-height*0.5)
+						ctx.lineTo(0,height*0.5)
+
+						ctx.stroke()
+
+						ctx.lineWidth=2
+						ctx.strokeStyle="#222"
+						ctx.beginPath()
+						dx = width/H.length
+
+						for(let i=0;i<H.length;++i){
+
+							let phase = -Math.atan2(H[i].im,H[i].re)*180/Math.PI
+							//(a+ib)(a-ib) == sqrt(aa+bb)
+							ctx.lineTo(i*dx,phase*scalar)
+						}
+						ctx.stroke()
+						ctx.restore()
+					}
+
+					let sop = addABbox("B poly","A poly",div)
+					let pos = addABbox("B zero","A pole",div)
+
+					let zeros = []
+					let poles = []
+					
+					pos[0][2].value = pos[0][2].placeholder = "(z+0.3+0.3i)(z+0.3-0.3i)"
+					pos[0][2].oninput = function(event){
+						ctx.clearRect(0, 0,canvas.width, canvas.height);
+						zeros = posParser(this,drawCircle)
+						let H = getHz(poles,zeros)
+						drawMagnitudeResponse(H)
+						drawPhaseResponse(H)
+						drawZero(zeros)
+						drawPole(poles)
+					}
+
+					pos[1][2].value =	pos[1][2].placeholder = "(z+0.5)(z-0.5)"
+					pos[1][2].oninput = function(){
+						ctx.clearRect(0, 0,canvas.width, canvas.height);
+						poles=posParser(this,drawCircle)
+						let H = getHz(poles,zeros)
+						drawMagnitudeResponse(H)
+						drawPhaseResponse(H)
+						drawZero(zeros)
+						drawPole(poles)
+					}
+
+					zeros = posParser(pos[0][2],drawCircle)
+					poles = posParser(pos[1][2],drawCircle)
+					let H = getHz(poles,zeros)
+					drawMagnitudeResponse(H)
+					drawPhaseResponse(H)
+					drawZero(zeros)
+					drawPole(poles)
+
+					//console.log(zeros)
+					//console.log(poles)
+
+
+
+					
+					let draw = function(){
+						//ctx.save();
+						//ctx.restore();
+						//ctx.setTransform
+						//ctx.rotate
+						//ctx.translate
+						//ctx.createImageData(W,H);
+						//ctx.putImageData(f.img, 0, 0);
+						//await Promise.all([someCall(), anotherCall()]);
+						//let [someResult, anotherResult] = await Promise.all([someCall(), anotherCall()]);
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+					
+						requestAnimationFrame(draw);
+					}
+				
+				}catch(e){alert(e);}//debugging alerts
+      }
+    
+			
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

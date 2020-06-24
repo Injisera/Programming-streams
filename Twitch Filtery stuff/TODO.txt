@@ -1,0 +1,6 @@
+add all input boxes
+draw circle in top left corner
+add the sampling frequency input
+draw bode diagram (magnitude)
+draw bode diagram (phase)
+add the extra input textbox
