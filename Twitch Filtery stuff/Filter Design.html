@@ -20,7 +20,10 @@
 
 			label{
 				display:inline-block;
+				width:50px;
 			}
+
+
 
 			div>div>div{
 				display:block;
@@ -29,19 +32,25 @@
 			input{
 				display:inline-block;
 				position:relative;
+				width:500px;
 			}
 			
 			canvas{
 				position:relative;
-				background-color:#ccc;
+				background-color:#ddd;
 			}
 			
 		</style>
     <script type="text/javascript">
 			class complex{
-				constructor(re,im){
-					this.re = re
-					this.im = im
+				constructor(obj){//just copy...
+					this.re = obj.re
+					this.im = obj.im
+				}
+				add(other){
+					[this.re,
+					this.im]= [this.re+other.re,
+										this.im+other.im]
 				}
 
 				mul(other){
@@ -82,7 +91,20 @@
 				return [labeledBox(labelB,div),labeledBox(labelA,div)]
 			}
 
-			function posParser(that,drawCirc){
+			function stringFormat(num,sig){
+				let s = num
+				if(s){
+					s=""+s.toFixed(sig)
+				}else{
+					s="0.00"
+				}
+				if(s[0]!='-'){
+					s = ['+',s].join("")
+				}
+				return s
+			}
+
+			function posParser(that){
 				let arr = []
 				const regex = /\(z([+-]\d+\.\d+)?([+-]\d+\.\d+i)?\)/gm;
 				let m;
@@ -92,24 +114,24 @@
 					if (m.index === regex.lastIndex) {
 							regex.lastIndex++;
 					}
-					
-					// The result can be accessed through the `m`-variable.
-					
+										
 					let re = 0
 					let im = 0
 					m.forEach((match, groupIndex) => {
-						
 						if(match != undefined){
-							if (groupIndex==1){//re
-								re = -parseFloat(match)
-							}else if (groupIndex==2){//im
-								im = parseFloat(match)
+							switch(groupIndex){
+								case 1:
+									re = -parseFloat(match)
+								break;
+								case 2:
+									im = parseFloat(match)
+								break;
 							}
 						}	
 					});
-					arr.push(new complex(re,im))
+					arr.push(new complex({re:re,im:im}))
 				}
-				drawCirc()
+				
 				return arr
 			}
 
@@ -128,6 +150,8 @@
 					canvas.width=640;
 					canvas.height=480
 
+					const superScript = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹']
+
 					let splitX = 0.5*canvas.width
 					let splitY = 0.5*canvas.height
 					let fs_value = 0
@@ -137,22 +161,29 @@
 					const circleY = canvas.height/4
 					const radius  = Math.min(circleX,circleY)-50
 
-					canvas.style.width=
-					div.style.width=
-					canvas.width+"px";
+					canvas.style.width = div.style.width = canvas.width+"px";
 					canvas.style.height=canvas.height+"px";
 					
 					onresize = function(e){
-						div.left=(window.innerWidth-canvas.width)>>1;						
+						div.left=(window.innerWidth-canvas.width)>>1;		
+						div.top=10		
 						div.style.left=div.left+"px";
-						div.style.top="10px";
+						div.style.top=div.top+"px";
 					}
 					onresize();//call it an extra time so everything is centered when you start
 					
 
 					let fs = labeledBox("fs",div_group)
+					fs[2].style.width="100px"
 					fs[2].placeholder="1000"
 					fs[2].value="1000 Hz"
+					fs[2].oninput=function(){
+						fs_value = parseInt(this.value)
+						if(isNaN(fs_value)){
+							fs_value=0
+						}
+						updateScreen()
+					}
 
 					function drawCircle(){
 
@@ -163,7 +194,7 @@
 						ctx.arc(0,0,radius,0,pi2)
 						ctx.stroke()
 
-						fs_value = parseInt(fs[2].value)
+						
 						//missing
 						//maybe show kHz and MHz
 						ctx.textAlign = "left"; 
@@ -179,8 +210,7 @@
 						ctx.fillText(fs_value*0.5 + " Hz",-radius-5,0)
 						ctx.restore();
 
-					}drawCircle()
-
+					}
 					function drawZero(comp_arr){
 						ctx.save();
 						ctx.translate(circleX,circleY)
@@ -196,7 +226,6 @@
 						ctx.stroke()
 						ctx.restore()
 					}
-
 					function drawPole(comp_arr){
 						
 						ctx.save();
@@ -219,34 +248,37 @@
 						})
 						ctx.restore()
 					}
-
 					function getHz(a,b){
 						let H = []
-						for(let fi=0;fi<Math.PI;fi+=0.01){ 
+
+						function h(fi){
 							let c = Math.cos(fi)
 							let s = Math.sin(fi)
 
-							let bTerm = new complex(1,0)
-							let aTerm = new complex(1,0)
+							let bTerm = new complex({re:1,im:0})
+							let aTerm = new complex({re:1,im:0})
 
 							for(let i=0;i<b.length;++i){
-								let temp = new complex(c-b[i].re,s-b[i].im)
+								let temp = new complex({re:c-b[i].re,im:s-b[i].im})
 								bTerm.mul(temp)
 							}
 
 							for(let i=0;i<a.length;++i){
-								let temp = new complex(c-a[i].re,s-a[i].im)
+								let temp = new complex({re:c-a[i].re,im:s-a[i].im})
 								aTerm.mul(temp)
 							}
 
 							bTerm.div(aTerm)
-
 							H.push(bTerm)
 						}
+
+						for(let fi=0;fi<Math.PI;fi+=0.01){ 
+							h(fi)
+						}
+						h(Math.PI)//calculate the last one
+						
 						return H
 					}
-					//z = e^(i*2*pi*(500/fs))
-
 					function drawMagnitudeResponse(H){
 						//H = list of complex numbers
 
@@ -277,15 +309,17 @@
 						ctx.textBaseline = "top"; 
 						ctx.beginPath()//vertical lines
 						
-						let dx = 0.125
+
 						
-						for(i=dx;i<=0.5;i+=dx){
-							let xx = i*width/0.5
-							let text = i*fs_value+" Hz"
+						for(i=0;i<=1;i+=0.25){
+							let xx = i*width
+							let text = i*fs_value*0.5+" Hz"
 							
 							ctx.fillText(text,xx,10)
-							ctx.moveTo(xx,5)
-							ctx.lineTo(xx,-height)
+							if(i){
+								ctx.moveTo(xx,5)
+								ctx.lineTo(xx,-height)
+							}
 						}
 
 						ctx.stroke()
@@ -302,7 +336,7 @@
 						ctx.lineWidth=2
 						ctx.strokeStyle="#222"
 						ctx.beginPath()
-						dx = width/H.length
+						dx = width/(H.length-1)
 
 						for(let i=0;i<H.length;++i){
 							let aa = H[i].re*H[i].re
@@ -313,12 +347,11 @@
 						ctx.stroke()
 						ctx.restore()
 					}
-
 					function drawPhaseResponse(H){
 						//H = list of complex numbers
 
 						const width = canvas.width-splitX-40
-						const height = canvas.height-splitY-80
+						const height = canvas.height-splitY-40
 						const scalar = 0.5
 
 						ctx.save();
@@ -332,7 +365,7 @@
 						for(i=-180;i<=180;i+=45){
 							let yy = -i*scalar 
 							ctx.fillText(i,-10,yy)
-							if((i%1)==0){
+							if(i){//don't draw on i=0
 								ctx.moveTo(0,yy)
 								ctx.lineTo(width,yy)
 							}
@@ -343,15 +376,16 @@
 						ctx.textBaseline = "top"; 
 						ctx.beginPath()//vertical lines
 						
-						let dx = 0.125
-						
-						for(i=dx;i<=0.5;i+=dx){
+
+						for(i=0;i<=0.5;i+=0.125){
 							let xx = i*width/0.5
 							let text = i*fs_value+" Hz"
 							
 							ctx.fillText(text,xx,height*0.5+20)
-							ctx.moveTo(xx,height*0.5+5)
-							ctx.lineTo(xx,-height*0.5)
+							if(i){
+								ctx.moveTo(xx,height*0.5+5)
+								ctx.lineTo(xx,-height*0.5)
+							}
 						}
 
 						ctx.stroke()
@@ -371,7 +405,7 @@
 						ctx.lineWidth=2
 						ctx.strokeStyle="#222"
 						ctx.beginPath()
-						dx = width/H.length
+						dx = width/(H.length-1)
 
 						for(let i=0;i<H.length;++i){
 
@@ -388,58 +422,238 @@
 
 					let zeros = []
 					let poles = []
-					
-					pos[0][2].value = pos[0][2].placeholder = "(z+0.3+0.3i)(z+0.3-0.3i)"
+
+					function writePoly(zp,input,sig){
+						//convolution
+						if(zp.length==0){return 0;}
+						//don't do anything if we don't have anything
+						let output = [new complex(zp[0])]
+						//copy the first object into an array
+						for(let i=1;i<zp.length;++i){
+							output.push(new complex(output[i-1]))//fix end
+							output[i].mul(zp[i])
+							for(let j=i-1;j>0;j--){//do the actual convolution
+								let temp = new complex(output[j-1])
+								temp.mul(zp[i])
+								output[j].add(temp)
+							}
+							output[0].add(zp[i])//fix start
+						}
+
+						
+						//toFixed(sig)
+
+						let temp = "" + zp.length
+						let str = "z"
+						for(let i=0;i<temp.length;++i){
+							str+=superScript[temp.charCodeAt(i)-48]
+						}
+
+						temp = zp.length
+						for(let i=0;i<output.length;++i){
+							temp--
+							let re = output[i].re
+							let im = output[i].im
+
+							if(Math.abs(re)>0.001){
+								if(Math.abs(im)>0.001){	
+									if(temp>0){
+										str+="+("+stringFormat(re,sig)+stringFormat(im,sig)+"i)"
+									}else{
+										str+=stringFormat(re,sig)+stringFormat(im,sig)+"i"
+									}
+									
+								}else{
+									str+=stringFormat(re,sig)
+								}
+							}else{
+								if(Math.abs(im)>0.001){
+									str+=stringFormat(im,sig)+"i"
+								}
+							}
+							if(temp>0){
+								str+="z"
+							}
+							if(temp>1){
+								str+=superScript[temp]
+							}
+						}
+					//	console.log(str)
+						//for(let i=0;i<)
+
+						input.value = str
+					}
+
+					function writeZP(zp,input,sig){
+						let str=""
+						for(let i=0;i<zp.length;++i){
+							
+							str+="(z"+stringFormat(-zp[i].re,sig)+stringFormat(-zp[i].im,sig)+"i)"
+						}
+						input.value = str
+					}
+
+					function updateScreen(src=-1){
+						ctx.clearRect(0, 0,canvas.width, canvas.height);
+						drawCircle()
+						let H = getHz(poles,zeros)
+						drawMagnitudeResponse(H)
+						drawPhaseResponse(H)
+						drawZero(zeros)
+						drawPole(poles)
+						if(src!=0){
+							writeZP(zeros,pos[0][2],2)
+						}if(src!=1){
+							writeZP(poles,pos[1][2],2)
+						}if(src!=2){
+							writePoly(zeros,sop[0][2],2)
+						}if(src!=3){
+							writePoly(poles,sop[1][2],2)
+						}
+					}
+					let downPress=[]
+					let moved=0
+					canvas.onmouseexit=canvas.onmouseout=canvas.onmouseup=function(e){downPress=[]}
+
+
+					canvas.onmouseup=function(e){
+						downPress=[]
+						switch(moved){
+							case 0:moved=1;break;
+						}
+					}
+
+					canvas.onmousemove=function(e){
+						moved-=1//set us to initial state
+						if(downPress.length>0){//I'm grabbing something!
+							let mouseX = e.clientX-div.left
+							let mouseY = e.clientY-div.top
+							if(e.ctrlKey){mouseY=circleY}
+							for(let i=0;i<downPress.length;++i){
+								downPress[i].re = (mouseX-circleX)/radius
+								downPress[i].im = (1-i*2)*(mouseY-circleY)/radius
+							}
+							updateScreen()
+						}
+					}
+
+					canvas.onmousedown=function(e){
+						if(moved<0){
+						//if I recently moved my mouse
+						//set the moved state to first level
+							moved=0
+						}
+						//which quadrant did I click in?
+						let mouseX = e.clientX-div.left
+						let mouseY = e.clientY-div.top
+						if(mouseX<splitX){
+							if(mouseY<splitY){//console.log("circ")
+
+
+								//if I click on a zero, make it so I can move it
+								//if I click on a pole, make it so I can move it
+								//if I click on nothing, add a zero
+								//if I click on a recent zero, turn it into a pole
+								//if I click on an old zero or pole, destroy it
+								/*
+								function getZP(zp,dist){
+
+								}*/
+
+								function hitTest(zp,mx,my,skip=0,destroy=0){
+									for(let i=0;i<zp.length;++i){//if I click on a zero, make it so I can move it
+										let xx = zp[i].re*radius+circleX//turn it into pixels
+										let yy = zp[i].im*radius+circleY//turn it into pixels
+										let dx = mx-xx
+										let dy = my-yy
+										let dd = dx*dx+dy*dy
+										if (dd<25){
+											if(destroy){
+												zp.splice(i--,1)
+												return 1;
+											}
+											if(zp[i]!=skip){
+												return [zp[i]]
+											}
+
+										}
+									}
+									return []
+								}
+
+								function grab(zp){
+									
+									downPress = hitTest(zp,mouseX,mouseY)
+									if(downPress.length){
+										if(!e.shiftKey){
+											let temp = hitTest(zp,mouseX,circleY*2-mouseY,downPress[0])//try to find the conjugate
+											if(temp.length){
+												if(temp[0]!=downPress[0]){
+													downPress = downPress.concat(temp)
+												}
+											}
+										}
+										return 1;
+									}
+									return 0;//didn't hit anything
+								}
+
+								
+								
+								smallMouseX = (mouseX-circleX)/radius
+								smallMouseY = (mouseY-circleY)/radius
+								switch(moved){
+									case 0:
+										if (grab(zeros)){return 0;}
+										if (grab(poles)){return 0;}
+										zeros.push(new complex({re:smallMouseX,im:smallMouseY}))
+										downPress=[zeros[zeros.length-1]]
+									break;
+									case 1:
+										if(hitTest(poles,mouseX,mouseY,0,1)!=1){
+											if(hitTest(zeros,mouseX,mouseY,0,1)==1){
+												poles.push(new complex({re:smallMouseX,im:smallMouseY}))
+												downPress=[poles[poles.length-1]]
+											}
+										}
+									break;
+								}
+
+								
+								//updateScreen()
+								//if I click on nothing, add a zero
+								updateScreen()
+							}else{
+								console.log("wave")
+								//not sure why you would want to... click here... hmm
+							}
+						}else{
+							if(mouseY<splitY){
+								console.log("mag")
+								//so I can modify the magnitude response with least squares
+							}else{
+								console.log("phase")
+								//so I can modify the phase response with least squares
+							}
+						}
+					}
+
+					pos[0][2].value = pos[0][2].placeholder = "(z-0.63-0.77i)(z-0.63+0.77i)(z+0.71+0.70i)(z+0.71-0.70i)(z-0.09+0.39i)(z-0.09-0.39i)"
 					pos[0][2].oninput = function(event){
-						ctx.clearRect(0, 0,canvas.width, canvas.height);
-						zeros = posParser(this,drawCircle)
-						let H = getHz(poles,zeros)
-						drawMagnitudeResponse(H)
-						drawPhaseResponse(H)
-						drawZero(zeros)
-						drawPole(poles)
+						zeros = posParser(this)
+						updateScreen(0)
 					}
 
-					pos[1][2].value =	pos[1][2].placeholder = "(z+0.5)(z-0.5)"
+					pos[1][2].value =	pos[1][2].placeholder = "(z-0.54-0.64i)(z-0.54+0.64i)(z+0.63+0.51i)(z+0.63-0.51i)(z-0.21+0.89i)(z-0.21-0.89i)"
 					pos[1][2].oninput = function(){
-						ctx.clearRect(0, 0,canvas.width, canvas.height);
-						poles=posParser(this,drawCircle)
-						let H = getHz(poles,zeros)
-						drawMagnitudeResponse(H)
-						drawPhaseResponse(H)
-						drawZero(zeros)
-						drawPole(poles)
+						poles=posParser(this)
+						updateScreen(1)
 					}
 
-					zeros = posParser(pos[0][2],drawCircle)
-					poles = posParser(pos[1][2],drawCircle)
-					let H = getHz(poles,zeros)
-					drawMagnitudeResponse(H)
-					drawPhaseResponse(H)
-					drawZero(zeros)
-					drawPole(poles)
-
-					//console.log(zeros)
-					//console.log(poles)
-
-
-
-					
-					let draw = function(){
-						//ctx.save();
-						//ctx.restore();
-						//ctx.setTransform
-						//ctx.rotate
-						//ctx.translate
-						//ctx.createImageData(W,H);
-						//ctx.putImageData(f.img, 0, 0);
-						//await Promise.all([someCall(), anotherCall()]);
-						//let [someResult, anotherResult] = await Promise.all([someCall(), anotherCall()]);
-						ctx.clearRect(0, 0, canvas.width, canvas.height);
-					
-						requestAnimationFrame(draw);
-					}
-				
+					fs_value = parseInt(fs[2].value)
+					zeros = posParser(pos[0][2])
+					poles = posParser(pos[1][2])
+					updateScreen()
 				}catch(e){alert(e);}//debugging alerts
       }
     
