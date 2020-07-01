@@ -1,3 +1,10 @@
+Add input and output waves
+Transform
+B poly
+A poly 
+into an ACTUAL filter
+
+DONE:
 add all input boxes
 draw circle in top left corner
 add the sampling frequency input
