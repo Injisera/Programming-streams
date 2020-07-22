@@ -1,6 +1,6 @@
 //mat.js needs to be defined first
 class model {
-  constructor(dim,data,S){
+  constructor(dim,data){
     this.dim=dim
     this.data=data//3D coordinates, or some higher dimension coordinates
     Object.freeze(this.data)//MUST NOT be changed!
@@ -28,18 +28,42 @@ class model {
       mat.vAB(this.rot_matrix,temp)
     }
   }
-  draw(ctx,T){
-
-    let temp = mat.AB(T,this.rot_matrix)
+  draw(ctx,screenTransform,cam){
+    //ScreenTransform
+    //
+    const depth = 0.01
+    let temp = mat.AB(cam.transform,this.rot_matrix)
 
     ctx.beginPath()
     this.data.forEach((line)=>{
-      for(let i=0;i<line.length;++i){
-        const p = mat.Ab(temp,line[i])
-        if(i){
-          ctx.lineTo(p[0],-p[1])
-        }else{
-          ctx.moveTo(p[0],-p[1])
+      for(let i=0;i<line.length;++i){/* adds one to i */
+
+        let temp_line = []
+        //line[i] = [x,y,z,1]
+
+
+        for(let j=0;j<4;++j){
+          temp_line[j]=line[i][j]
+
+          temp_line[j]+=cam.p[j]
+        }
+        let p = mat.Ab(temp,temp_line)
+
+
+        //depth
+        //y = depth 
+        
+        if(p[1]>10){
+          
+          p[0]=p[0]/(p[1]*depth)//x = x/y
+          p[2]=p[2]/(p[1]*depth)//z = z/y
+          p = mat.Ab(screenTransform,p)
+
+          if(i){
+            ctx.lineTo(p[0],-p[1])
+          }else{
+            ctx.moveTo(p[0],-p[1])
+          }
         }
       }
     })

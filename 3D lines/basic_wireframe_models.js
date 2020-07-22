@@ -28,7 +28,7 @@ const wire = {
         [x,y+s,z,1],
         [x,y+s,z+s,1]
       ],[
-        [x+s*0.25,y+s*0.25,z+s,1],//draw number 1 on top side
+        [x+s*0.75,y+s*0.25,z+s,1],//draw number 1 on top side
         [x+s*0.5,y,z+s,1],
         [x+s*0.5,y+s,z+s,1]
       ]
@@ -42,12 +42,19 @@ const wire = {
     const yScalar = 10
     const zScalar = 10
 
-    for(let i=0;i<20;++i){
+    for(let xx=0;xx<50;++xx){
       let line = []
-      for(let j=0;j<20;++j){
-        const c = Math.sin(i*fiScalar)
-        const s = Math.sin(j*fiScalar)
-        line.push([(i+x)*xScalar,(j+y)*yScalar+y,(c+s+z)*zScalar,1])
+      for(let yy=0;yy<50;++yy){
+        const c = Math.sin(xx*fiScalar)
+        const s = Math.sin(yy*fiScalar)
+        line.push([(xx+x)*xScalar,(yy+y)*yScalar+y,(c+s+z)*zScalar,1])
+      }
+      grid.push(line)
+      line=[]
+      for(let yy=0;yy<50;++yy){
+        const c = Math.sin(yy*fiScalar)
+        const s = Math.sin(xx*fiScalar)
+        line.push([(yy+x)*xScalar,(xx+y)*yScalar+y,(c+s+z)*zScalar,1])
       }
       grid.push(line)
     }
