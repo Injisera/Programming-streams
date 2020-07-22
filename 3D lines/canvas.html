@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <title>base</title>
+    <meta charset="utf-8">
+		<style>
+			body,canvas{
+				background-color:#fff;
+				padding:0px;
+				margin:0px;
+				border:0px;
+				-overflow:hidden;
+				width:100%;
+				height:100%;
+			}
+
+			
+			canvas{
+				width:200px;
+				height:150px;
+				display:block;
+				margin: auto;
+				margin-top:10px;
+				background-color:#ddd;
+			}
+			
+		</style>
+		<script type="text/javascript" src="mat.js"></script>
+		<script type="text/javascript" src="basic_wireframe_models.js"></script>
+		<script type="text/javascript" src="model_class.js"></script>
+    <script type="text/javascript">
+			
+			class camera{//3D
+				constructor(screen,xr=0,yr=0,zr=0,x=0,y=0,z=0){
+					this.screen=screen
+					this.total_transform = screen
+					this.transform = mat.eye(4)
+					this.xrot = mat.eye(4)
+					this.yrot = mat.eye(4)
+					this.zrot = mat.eye(4)
+					this.xr = xr
+					this.yr = yr
+					this.zr = zr
+				}
+
+				addLocalXpos(val){
+					const c = Math.cos(this.zr)*val
+					const s = Math.sin(this.zr)*val
+
+					this.transform[0][3]+=c//x
+					this.transform[1][3]+=s//y
+				}
+
+				addLocalYpos(val){
+					const c = Math.cos(this.zr)*val
+					const s = Math.sin(this.zr)*val
+					
+					this.transform[0][3]+=s//x
+					this.transform[1][3]-=c//y
+				}
+
+				addGlobalXpos(val){
+					this.transform[0][3]+=val//x
+				}
+
+				addGlobalYpos(val){
+					this.transform[1][3]+=val//y
+				}
+
+				addGlobalZpos(val){
+					this.transform[2][3]+=val//z
+				}
+
+				addXrot(val){
+					this.xr+=val
+					this.rot()
+				}
+
+				addYrot(val){
+					this.yr+=val
+					this.rot()
+				}
+
+				addZrot(val){
+					this.zr+=val
+					this.rot()
+					
+				}
+
+				updateTotalTransform(){//update total transform
+					this.total_transform = mat.AB(this.screen,this.transform)
+				}
+
+				rot(xr,yr,zr){
+
+					for(let i=0;i<3;++i){
+						this.xrot[i].fill(0)
+						this.yrot[i].fill(0)
+						this.zrot[i].fill(0)
+						this.xrot[i][i]=1
+						this.yrot[i][i]=1
+						this.zrot[i][i]=1
+					}
+
+					if(xr!=undefined){
+						this.xr=xr
+					}					
+					if(yr!=undefined){
+						this.yr=yr
+					}					
+					if(zr!=undefined){
+						this.zr=zr
+					}					
+
+					mat.rot(this.xrot,3,1,this.xr)
+					mat.rot(this.yrot,3,2,this.yr)
+					mat.rot(this.zrot,3,0,this.zr)
+
+					mat.vAB(this.zrot,this.xrot) //zrot = zrot*xrot
+					mat.vAB(this.zrot,this.yrot) //zrot = zrot*yrot
+					//console.log(temp)
+					for(let i=0;i<3;++i){
+						for(let j=0;j<3;++j){
+							this.transform[i][j] = this.zrot[i][j]//copy the rotation into our transform
+						}
+					}
+				}
+
+				pos(x,y,z){
+					if (x != undefined){
+						this.transform[0][3]=x
+					}
+					if (y != undefined){
+						this.transform[1][3]=y
+					}
+					if (z != undefined){
+						this.transform[2][3]=z
+					}
+				}
+				
+				set_cam(xr,yr,zr,x,y,z){
+					this.rot(xr,yr,zr)
+					this.pos(x,y,z)
+					this.updateTotalTransform()
+				}
+			}
+
+
+			onload=function(){
+				try{		
+
+					const canvas = document.body.appendChild(document.createElement("canvas"));
+					const ctx=canvas.getContext("2d");
+					const degtorad = Math.PI/180;
+					const PI2 = Math.PI*2;
+					
+					canvas.width=200;
+					canvas.height=150;
+
+					let screen = new Array(2)//output = 2 rows high, x,y
+					screen[0]=new Float32Array(4)
+					screen[1]=new Float32Array(4)
+
+					screen[0][0]=1//identity matrix
+					screen[1][2]=1//choose which dim that of x,y,z -> x,y
+					//I went for x => x and z => y
+
+					screen[0][3]=100//offsets
+					screen[1][3]=-100
+
+					let cam = new camera(screen)
+					let cube = new model(4,wire.cube(50,20,5))
+					let ground = new model(4,wire.ground(0,0))
+
+					let mouseDown = 0
+					let mouseX=0
+					let mouseY=0
+
+					document.onmousedown=function(e){
+						mouseDown=1
+						mouseX = e.clientX
+						mouseY = e.clientY
+					}
+
+					document.onmousemove = function(e){
+						const scalar = 0.01
+						if(mouseDown){
+							const dx = mouseX-e.clientX
+							const dy = mouseY-e.clientY
+							mouseX=e.clientX
+							mouseY=e.clientY
+							cam.addZrot(-dx*scalar)
+							cam.addXrot(dy*scalar)//slightly wrong...
+						}
+					}
+
+					document.onmouseup=function(e){
+						mouseDown=0
+					}
+
+
+
+
+					let w=0,a=0,s=0,d=0
+
+
+
+					document.onkeydown=function(e){
+						if(e.code == "KeyW"){//W
+							w = 1
+						}
+						if(e.code == "KeyA"){//A
+							a=1
+						}
+						if(e.code == "KeyS"){//S
+							s=1
+						}
+						if(e.code == "KeyD"){//D
+							d=1
+						}
+					}
+					
+					document.onkeyup=function(e){
+						if(e.code == "KeyW"){//W
+							w = 0
+						}
+						if(e.code == "KeyA"){//A
+							a=0
+						}
+						if(e.code == "KeyS"){//S
+							s=0
+						}
+						if(e.code == "KeyD"){//D
+							d=0
+						}
+					}
+
+					let t = 0
+					ctx.strokeStyle = "#222";						
+					ctx.lineWidth = 2;	
+					//ctx.lineCap = "square";
+					let draw = function(){
+						t+=0.01
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						//z axis, x axis, y axis
+				
+						//cam.set_cam(0,0,0,0,0,0)
+						//cam.addXrot(0.1)
+						//cam.addYrot(0.1)
+						//cam.updateTotalTransform()
+						if(w){
+							//cam.addLocalYpos(0.1)
+						}
+						if(a){
+							cam.addLocalXpos(5)
+						}
+						if(s){
+							//cam.addLocalYpos(0.1)
+						}
+						if(d){
+							cam.addLocalXpos(-5)
+						}
+
+						cam.updateTotalTransform()
+						ground.draw(ctx,cam.total_transform)
+						//cube.draw(ctx,cam.total_transform);
+						requestAnimationFrame(draw);
+					}
+
+					requestAnimationFrame(draw);					
+					
+				}catch(e){alert(e);}//debugging alerts
+      }
+    
+			
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

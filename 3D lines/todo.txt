@@ -1,0 +1,17 @@
+D1 place a camera matrix between S and T
+D2 make the matrix interactable (events)
+F3 get rid of weird corners
+
+
+
+
+
+
+
+
+
+
+
+
+
+https://discord.gg/zJEbVX
