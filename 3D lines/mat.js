@@ -41,7 +41,7 @@ const mat = {
     }
     return sum;
   },
-  AB:(A,B)=>{//matrix times matrix
+  AB:(A,B)=>{//matrix times matrix, result at return
     //m x n * n x o = m x o
     const m = A.length
     const n = B.length
@@ -63,7 +63,7 @@ const mat = {
     }
     return out
   },
-  vAB:(A,B)=>{//void matrix times matrix
+  vAB:(A,B)=>{//void matrix times matrix, result in A
     //m x n * n x o = m x o
     const m = A.length
     const n = B.length
@@ -87,6 +87,49 @@ const mat = {
     for(let i=0;i<m;++i){
       for(let j=0;j<n;++j){
         A[i][j]=out[i][j]//copy values over
+      }
+    }
+  },
+  ABv:(A,B)=>{//void matrix times matrix, result in A
+    //m x n * n x o = m x o
+    const m = A.length
+    const n = B.length
+    const o = B[0].length
+
+    let out = new Array(m)
+    for(let i=0;i<m;++i){
+      out[i] = new Float32Array(o)
+    }
+
+    for(let i=0;i<m;++i){
+      for(let j=0;j<o;++j){
+        let sum = 0
+        for(let k=0;k<n;++k){
+          sum+=A[i][k]*B[k][j]
+        }
+        out[i][j]=sum
+      }
+    }
+
+    for(let i=0;i<m;++i){
+      for(let j=0;j<n;++j){
+        B[i][j]=out[i][j]//copy values over
+      }
+    }
+  },
+  CAB:(C,A,B)=>{//C = A times B, result in C
+    //m x n * n x o = m x o
+    const m = A.length
+    const n = B.length
+    const o = B[0].length
+
+    for(let i=0;i<m;++i){
+      for(let j=0;j<o;++j){
+        let sum = 0
+        for(let k=0;k<n;++k){
+          sum+=A[i][k]*B[k][j]
+        }
+        C[i][j]=sum
       }
     }
   },

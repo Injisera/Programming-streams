@@ -16,8 +16,8 @@
 
 			
 			canvas{
-				width:400px;
-				height:300px;
+				width:800px;
+				height:600px;
 				display:block;
 				margin: auto;
 				margin-top:10px;
@@ -29,128 +29,6 @@
 		<script type="text/javascript" src="basic_wireframe_models.js"></script>
 		<script type="text/javascript" src="model_class.js"></script>
     <script type="text/javascript">
-			
-			class camera{//3D
-				constructor(screen,xr=0,yr=0,zr=0,x=0,y=0,z=0){
-					this.screen=screen
-					this.total_transform = screen
-					this.transform = mat.eye(4)
-
-					this.p = new Array(4)
-					this.p[0]=x
-					this.p[1]=y
-					this.p[2]=z
-					this.p[3]=0
-
-					this.xrot = mat.eye(4)
-					this.yrot = mat.eye(4)
-					this.zrot = mat.eye(4)
-					this.xr = xr
-					this.yr = yr
-					this.zr = zr
-				}
-
-				addLocalXpos(val){
-					const c = Math.cos(this.zr)*val
-					const s = Math.sin(this.zr)*val
-
-					this.p[0]+=c//x
-					this.p[1]+=-s//y
-				}
-
-				addLocalYpos(val){
-					const c = Math.cos(this.zr)*val
-					const s = Math.sin(this.zr)*val
-					
-					this.p[0]-=s//x
-					this.p[1]-=c//y
-				}
-
-				addGlobalXpos(val){
-					this.p[0]+=val
-				}
-
-				addGlobalYpos(val){
-					this.p[1]+=val
-				}
-
-				addGlobalZpos(val){
-					this.p[2]+=val
-				}
-
-				addXrot(val){
-					this.xr+=val
-					this.rot()
-				}
-
-				addYrot(val){
-					this.yr+=val
-					this.rot()
-				}
-
-				addZrot(val){
-					this.zr+=val
-					this.rot()
-				}
-
-				updateTotalTransform(){//update total transform
-					this.total_transform = mat.AB(this.screen,this.transform)
-				}
-
-				rot(xr,yr,zr){
-					for(let i=0;i<3;++i){
-						this.xrot[i].fill(0)
-						this.yrot[i].fill(0)
-						this.zrot[i].fill(0)
-						this.xrot[i][i]=1
-						this.yrot[i][i]=1
-						this.zrot[i][i]=1
-					}
-
-					if(xr!=undefined){
-						this.xr=xr
-					}					
-					if(yr!=undefined){
-						this.yr=yr
-					}					
-					if(zr!=undefined){
-						this.zr=zr
-					}					
-
-					mat.rot(this.xrot,3,1,this.xr)
-					mat.rot(this.yrot,3,2,this.yr)
-					mat.rot(this.zrot,3,0,this.zr)
-
-					mat.vAB(this.zrot,this.xrot) //zrot = zrot*xrot
-					mat.vAB(this.zrot,this.yrot) //zrot = zrot*yrot
-					//zrot = zrot*xrot*yrot
-					//console.log(temp)
-					for(let i=0;i<3;++i){
-						for(let j=0;j<3;++j){
-							this.transform[i][j] = this.zrot[i][j]//copy the rotation into our transform
-						}
-					}
-				}
-
-				pos(x,y,z){
-					if (x != undefined){
-						this.x=x
-					}
-					if (y != undefined){
-						this.y=y
-					}
-					if (z != undefined){
-						this.z=z
-					}
-				}
-				
-				set_cam(xr,yr,zr,x,y,z){
-					this.rot(xr,yr,zr)
-					this.pos(x,y,z)
-					this.updateTotalTransform()
-				}
-			}
-
 
 			onload=function(){
 				try{		
@@ -160,149 +38,153 @@
 					const degtorad = Math.PI/180;
 					const PI2 = Math.PI*2;
 					
-					canvas.width=400;
-					canvas.height=300;
+					canvas.width=800;
+					canvas.height=600;
+					const cw2 = canvas.width*0.5
+					const ch2 = canvas.height*0.5
 
-					let screenTransform = new Array(2)//output = 2 rows high, x,y
-					screenTransform[0]=new Float32Array(4)
-					screenTransform[1]=new Float32Array(4)
 
-					screenTransform[0][0]=1//identity matrix
-					screenTransform[1][2]=1//choose which dim that of x,y,z -> x,y
-					//I went for x => x and z => y
+					
+					
+					let proj 			= mat.eye(4)
+					let temp 			= mat.eye(4)
+					let transform = mat.eye(4)
+					let view 			= mat.eye(4)
+					let xyview 		= mat.eye(4)
+					let zview 		= mat.eye(4)
+					
+					let add_rot = function(pos,fi){//0 = z, 1 = x, 2 = y
+						
+						const m = 3;
+						for(let i=0;i<m;++i){//reset entire rotation matrix
+							for(let j=0;j<m;++j){
+								temp[i][j]=0;
+								proj[i][j]=0
+							}
+							proj[i][i]=1
+							temp[i][i]=1;
+						}
+						mat.rot(temp,m,pos,fi)
+						switch(pos){
+							case 0:
+								mat.vAB(xyview,temp)
+							break;
+							case 1:
+								mat.vAB(zview,temp)
+							break;
+						}
+						
+						mat.vAB(proj,zview)
+						mat.vAB(proj,xyview)
+						//console.log(this.transform)
+					}
+					cube = new model(cw2,ch2,4,wire.cube(10))
+					ground = new model(cw2,ch2,4,wire.ground(1))
+					cube.pos = [20,20,20]
+					ground.pos = [0,50,0]
 
-					screenTransform[0][3]=100//offsets
-					screenTransform[1][3]=-100
 
-					let cam = new camera(screenTransform)
-					let cube = new model(4,wire.cube(50,20,5,100))
-					let ground = new model(4,wire.ground(0,0))
-
+					let key={}
 					let mouseDown = 0
-					let mouseX=0
-					let mouseY=0
+					let mouseX = 0
+					let mouseY = 0
+					key.func = {}
+					key.check= {}
+
+
+					
 
 					document.onmousedown=function(e){
 						mouseDown=1
 						mouseX = e.clientX
 						mouseY = e.clientY
 					}
-
-					document.onmousemove = function(e){
-						const scalar = 0.01
-						if(mouseDown){
-							const dx = (mouseX-e.clientX)*scalar
-							const dy = (mouseY-e.clientY)*scalar
-							mouseX=e.clientX
-							mouseY=e.clientY
-							cam.addZrot(-dx)
-							const c = Math.cos(cam.zr)
-							const s = Math.sin(cam.zr)
-
-							//console.log(c)
-							//cam.
-
-							cam.addXrot(-dy*c)
-							cam.addYrot(-dy*s)
-
-
-							//do something smarter for xrot
-						}
-					}
-
 					document.onmouseup=function(e){
 						mouseDown=0
 					}
+					document.onmousemove=function(e){
+						const scalar = 0.01
+						if(mouseDown){
+							const dx = (e.clientX-mouseX)*scalar
+							const dy = (e.clientY-mouseY)*scalar
+							mouseX = e.clientX
+							mouseY = e.clientY
 
-
-
-
-					let w=0,a=0,s=0,d=0,ctrl=0,shft=0
-
-
-
-					document.onkeydown=function(e){
-				
-						if(e.code == "KeyW"){//W
-							w = 1
-						}
-						if(e.code == "KeyA"){//A
-							a=1
-						}
-						if(e.code == "KeyS"){//S
-							s=1
-						}
-						if(e.code == "KeyD"){//D
-							d=1
-						}
-						if(e.code == "ShiftLeft"){//Shift
-							shft=1
-						}
-						if(e.code == "ControlLeft"){//ctrl
-							ctrl=1
+							add_rot(0,dx)
+							add_rot(1,dy)
 						}
 					}
+
+					key.func.KeyA=function(){
+						for(let i=0;i<3;++i){view[i][3]+=proj[0][i]}
+					}
+					key.func.KeyD=function(){
+						for(let i=0;i<3;++i){view[i][3]-=proj[0][i]}
+					}
+					key.func.KeyW=function(){
+						for(let i=0;i<3;++i){view[i][3]-=proj[1][i]}
+					}
+					key.func.KeyS=function(){
+						for(let i=0;i<3;++i){view[i][3]+=proj[1][i]}
+					}
+					key.func.ShiftLeft=function(){
+						for(let i=0;i<3;++i){view[i][3]-=proj[2][i]}
+					}
+					key.func.ControlLeft=function(){
+						for(let i=0;i<3;++i){view[i][3]+=proj[2][i]}
+					}
+
 					
+
+					document.onkeydown=function(e){
+						if(e.code in key.func){
+							key.check[e.code]=1
+						}
+					}
 					document.onkeyup=function(e){
-						if(e.code == "KeyW"){//W
-							w = 0
-						}
-						if(e.code == "KeyA"){//A
-							a=0
-						}
-						if(e.code == "KeyS"){//S
-							s=0
-						}
-						if(e.code == "KeyD"){//D
-							d=0
-						}
-						if(e.code == "ShiftLeft"){//Shift
-							shft=0
-						}
-						if(e.code == "ControlLeft"){//ctrl
-							ctrl=0
+						if(e.code in key.func){
+							key.check[e.code]=0
 						}
 					}
 
 					let t = 0
 					ctx.strokeStyle = "#222";						
-					ctx.lineWidth = 2;	
-					//ctx.lineCap = "square";
+					ctx.lineWidth = 1;
+					ctx.setTransform(1,0,0,-1,cw2,ch2)
+					cube.add_rot(1,Math.PI/2)
+					cube.set_pos(2,-10)
 					const draw = function(){
-						t+=0.01
-						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						t+=0.1
+						ctx.clearRect(-cw2, -ch2, canvas.width,canvas.height);
+
+						for(let x in key.check){
+							if(key.check[x]){
+								key.func[x]()
+							}
+						}
 						//z axis, x axis, y axis
 				
 						//cam.set_cam(0,0,0,0,0,0)
 						//cam.addXrot(0.1)
 						//cam.addYrot(0.1)
 						//cam.updateTotalTransform()
-						if(w){
-							cam.addLocalYpos(3)
-						}
-						if(a){
-							cam.addLocalXpos(3)
-						}
-						if(s){
-							cam.addLocalYpos(-3)
-						}
-						if(d){
-							cam.addLocalXpos(-3)
-						}
-						if(shft){
-							cam.p[2]-=3
-						}
+						
+						//add_rot(0,0.01)
+						mat.CAB(transform,proj,view)//transform = proj * view
+						//cube.add_rot(0,0.1)
+						//cube.add_pos(1,Math.sin(t*2))
 
-						if(ctrl){
-							cam.p[2]+=3
-						}
-
-						cam.updateTotalTransform()
-						ground.draw(ctx,screenTransform,cam)
-						cube.draw(ctx,screenTransform,cam)
+						//cube.add_pos(0,0.01)
+						//cube.add_rot(0,Math.PI*0.001)
+						//cube.add_rot(2,Math.PI*0.01*Math.cos(t*0.5))
+						//cube.add_pos(2,Math.sin(t))
+						cube.add_rot(2,0.03)
+						ground.add_rot(1,Math.sin(t)*0.01)
+						ground.add_rot(2,Math.sin(t*0.8)*0.01)
+						cube.draw(ctx,transform)
+						ground.draw(ctx,transform)
 						requestAnimationFrame(draw);
 					}
-		
 
 					requestAnimationFrame(draw);					
 					
@@ -313,10 +195,10 @@
     </script>
   </head>
   <body>
-		W = forward, A = right(lol)<br>
-		S = backwards, D = left(lol<br>
+		W = forward, A = right<br>
+		S = backwards, D = left<br>
 		shift = up,ctrl = down<br>
-		LMB + click = look around (lol<br>
+		LMB + click = look around<br>
 		
   </body>
 </html>
